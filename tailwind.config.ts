@@ -18,6 +18,11 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['Poppins', 'Inter', 'sans-serif'],
+				poppins: ['Poppins', 'sans-serif'],
+				inter: ['Inter', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -52,6 +57,13 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Brand colors
+				"ct-paper": "#FAF8F3",       // Primary background
+				"ct-white": "#FEFEFE",       // Pure white
+				"ct-teal": "#7BB3E5",        // Teal accent
+				"ct-sky": "#A2E3F4",         // Sky blue
+				"ct-yellow": "#FACD7B",      // Sun yellow
+				"ct-gold": "#EBC367",        // Gold
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -66,7 +78,12 @@ export default {
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				'card': '16px',
+				'pill': '999px',
+			},
+			boxShadow: {
+				'ct': '0 2px 6px rgba(0, 0, 0, 0.05)',
 			},
 			keyframes: {
 				'accordion-down': {
