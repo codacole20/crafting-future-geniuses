@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
@@ -61,7 +62,11 @@ const lessonTags = {
 };
 
 const QUEST_BG = "#FAF8F3";
-const SPINE_COLOR = "#E6E6E6";
+const PATH_GRADIENT = "linear-gradient(180deg, #FAF8F3 60%, #E8F9FF 100%)";
+const PATH_COLOR = "#E6E6E6";
+
+// Arrangement of points for the "wavy" layout, normalized [-1,1] horizontal offsets
+const pathOffsets = [0, -0.18, 0.25, -0.22, 0.13];
 
 const QuestTrail = () => {
   const { toast } = useToast();
@@ -72,7 +77,14 @@ const QuestTrail = () => {
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [streakGlow, setStreakGlow] = useState(false);
 
-  // Load XP/streak data from localStorage; streak flows unchanged
+  // Fix: first lesson is always unlocked if not completed
+  const computeLessonState = (lesson: any, idx: number) => {
+    if (lesson.completed) return "completed";
+    if (idx === 0) return "unlocked";
+    if (xp >= lesson.unlock_xp) return "unlocked";
+    return "locked";
+  };
+
   useEffect(() => {
     const savedXp = localStorage.getItem("userXp");
     const savedStreak = localStorage.getItem("userStreak");
@@ -80,7 +92,7 @@ const QuestTrail = () => {
     if (savedXp) setXp(parseInt(savedXp));
     if (savedStreak) setStreak(parseInt(savedStreak));
     if (savedLessons) setLessons(JSON.parse(savedLessons));
-    
+
     const today = new Date().toDateString();
     const lastLoginDate = localStorage.getItem("lastLoginDate");
     if (lastLoginDate && lastLoginDate !== today) {
@@ -92,7 +104,6 @@ const QuestTrail = () => {
         const newStreak = (parseInt(savedStreak || "0") || 0) + 1;
         setStreak(newStreak);
         localStorage.setItem("userStreak", newStreak.toString());
-        // Animation: streak increment glow/wobble
         setStreakGlow(true);
         setTimeout(() => setStreakGlow(false), 500);
         toast({
@@ -107,27 +118,14 @@ const QuestTrail = () => {
     localStorage.setItem("lastLoginDate", today);
   }, []);
 
-  const computeLessonState = (lesson: any) => {
-    if (lesson.completed) return "completed";
-    if (xp >= lesson.unlock_xp) return "unlocked";
-    return "locked";
-  };
+  // Confetti stub
+  const triggerConfetti = () => {};
 
-  // Confetti (Lottie) trigger here as stub
-  const triggerConfetti = () => {
-    // Placeholder: Integrate Lottie here
-    // For now you might import/use a local animated asset
-    // Or leave a visual placeholder (eg. emoji confetti)
-    // If Lottie is required, you could add logic here
-  };
-
-  // Complete lesson
   const completeLesson = (lessonId: string) => {
     const idx = lessons.findIndex((l) => l.id === lessonId);
     if (idx === -1) return;
     if (lessons[idx].completed) return;
 
-    // Simulate XP POST event and completion
     const newXp = xp + lessons[idx].xp_reward;
     const updatedLessons = [...lessons];
     updatedLessons[idx].completed = true;
@@ -137,7 +135,6 @@ const QuestTrail = () => {
 
     localStorage.setItem("userXp", newXp.toString());
     localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
-
     triggerConfetti();
 
     toast({
@@ -146,80 +143,65 @@ const QuestTrail = () => {
     });
   };
 
-  // Used to animate spine growing down
+  // Spine animation
   const [spineGrow, setSpineGrow] = useState(false);
   useEffect(() => {
     setTimeout(() => setSpineGrow(true), 40);
   }, []);
 
-  // Show modal for non-locked lesson card only
-  const openLesson = (lesson: any) => {
-    if (computeLessonState(lesson) !== "locked") {
+  const openLesson = (lesson: any, idx: number) => {
+    if (computeLessonState(lesson, idx) !== "locked") {
       setSelectedLesson(lesson);
       setShowLessonModal(true);
     }
   };
 
+  // Calculate positions for nodes along a wavy path
+  const N = lessons.length;
+  const ySpacing = 112; // px between nodes
+  const xCenter = 0.5; // as percent of container width
+
+  function getNodePos(idx: number, containerWidth: number) {
+    const normOffset = pathOffsets[idx % pathOffsets.length];
+    // Waviness increases as you go down (to avoid all nodes line up exactly)
+    const x =
+      xCenter * containerWidth +
+      normOffset * (containerWidth * (0.35 - 0.07 * (idx % 2))); // Vary amplitude
+    const y = 56 + idx * ySpacing;
+    return { x, y };
+  }
+
   // Responsive: Render nothing if no lessons
   if (!lessons || lessons.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF8F3]">
-        <span className="text-gray-800 font-poppins font-semibold text-lg">Start your first Quest to earn XP!</span>
+        <span className="text-gray-800 font-poppins font-semibold text-lg">
+          Start your first Quest to earn XP!
+        </span>
       </div>
     );
   }
 
+  // Main trail body
   return (
-    <div className="w-full flex justify-center min-h-screen bg-[#FAF8F3] py-0 sm:py-4 lg:py-8">
-      <div className="w-full max-w-[480px] flex flex-col items-center">
+    <div
+      className="w-full flex justify-center min-h-screen py-0 sm:py-4 lg:py-8"
+      style={{
+        background: PATH_GRADIENT,
+      }}
+    >
+      <div className="w-full max-w-[480px] flex flex-col items-center relative">
         <HeaderCard xp={xp} streak={streak} streakGlow={streakGlow} />
-        <h1 className="text-2xl font-poppins font-semibold mt-3 mb-8">Quest Trail</h1>
-        <div className="relative w-full flex flex-col items-center">
-          {/* Spine */}
-          <motion.div
-            className="absolute left-1/2 -translate-x-1/2 top-2 w-1"
-            style={{
-              background: SPINE_COLOR,
-              borderRadius: "2px",
-              zIndex: 0,
-              minHeight: lessons.length * 116,
-              height: spineGrow ? lessons.length * 116 : 0,
-              transition: "height 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-            }}
-          />
-          {/* Node List */}
-          <div className="relative flex flex-col items-center w-full z-10">
-            {lessons.map((lesson, i) => {
-              const state = computeLessonState(lesson);
-              const prevState = i > 0 ? computeLessonState(lessons[i - 1]) : "completed";
-              return (
-                <div key={lesson.id} className="flex flex-col items-center w-full mb-6">
-                  <motion.div
-                    whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
-                    className="flex flex-col items-center w-full"
-                  >
-                    {/* Node */}
-                    <NodeCircle
-                      state={state}
-                      sequence={lesson.sequence_no}
-                      highlight={state === "unlocked" && prevState !== "unlocked"}
-                    />
-                    {/* Lesson Card */}
-                    <LessonCard
-                      locked={state === "locked"}
-                      title={lesson.title}
-                      tagIcon={lessonTags[lesson.type]?.icon}
-                      tagLabel={lessonTags[lesson.type]?.label}
-                      xpReward={lesson.xp_reward}
-                      onClick={() => openLesson(lesson)}
-                      remainingXp={lesson.unlock_xp - xp}
-                    />
-                  </motion.div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <h1 className="text-2xl font-poppins font-semibold mt-3 mb-8 text-gray-800">
+          Quest Trail
+        </h1>
+        <TrailBoard
+          lessons={lessons}
+          xp={xp}
+          computeLessonState={computeLessonState}
+          lessonTags={lessonTags}
+          openLesson={openLesson}
+        />
         {/* Lesson modal follows original behavior */}
         {showLessonModal && selectedLesson && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-40 p-2">
@@ -229,7 +211,6 @@ const QuestTrail = () => {
               animate={{ opacity: 1, scale: 1 }}
             >
               <h2 className="font-poppins font-semibold text-xl mb-4">{selectedLesson.title}</h2>
-              {/* Content (keep as in LevelPath for now) */}
               <div className="mb-6">
                 {selectedLesson.type === "video" && (
                   <div className="aspect-video bg-gray-100 rounded flex items-center justify-center mb-4">
@@ -268,5 +249,139 @@ const QuestTrail = () => {
     </div>
   );
 };
+
+/**
+ * TrailBoard aligns nodes along a wavy svg path background for a modern game-like map.
+ */
+function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }: any) {
+  // Responds to window width (max 440px)
+  const [containerWidth, setContainerWidth] = useState(340);
+
+  useEffect(() => {
+    function handleResize() {
+      setContainerWidth(Math.min(window.innerWidth - 32, 440));
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const nodePositions = lessons.map((_: any, idx: number) =>
+    getNodePos(idx, containerWidth)
+  );
+
+  // Create SVG path for background
+  const svgPathD = (() => {
+    if (nodePositions.length < 2) return "";
+    let d = `M ${nodePositions[0].x} ${nodePositions[0].y}`;
+    for (let i = 1; i < nodePositions.length; i++) {
+      // Use quadratic curve between points
+      const prev = nodePositions[i - 1];
+      const curr = nodePositions[i];
+      const controlX = (prev.x + curr.x) / 2 + (i % 2 === 0 ? 16 : -16);
+      const controlY = (prev.y + curr.y) / 2;
+      d += ` Q ${controlX} ${controlY} ${curr.x} ${curr.y}`;
+    }
+    return d;
+  })();
+
+  return (
+    <div
+      className="relative w-full mx-auto"
+      style={{
+        minHeight: nodePositions[nodePositions.length - 1].y + 94,
+        height: nodePositions[nodePositions.length - 1].y + 94,
+        maxWidth: containerWidth,
+      }}
+    >
+      {/* SVG Path (trail) */}
+      <svg
+        width={containerWidth}
+        height={nodePositions[nodePositions.length - 1].y + 94}
+        className="absolute left-1/2 -translate-x-1/2 top-0 z-0 pointer-events-none"
+      >
+        <defs>
+          <linearGradient
+            id="trail-grad"
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor="#E6E6E6" />
+            <stop offset="100%" stopColor="#A2E3F4" />
+          </linearGradient>
+        </defs>
+        <path
+          d={svgPathD}
+          stroke="url(#trail-grad)"
+          strokeWidth={4}
+          fill="none"
+          opacity="0.82"
+          style={{
+            filter: "drop-shadow(0 2px 6px rgba(160,160,160,0.11))",
+          }}
+        />
+      </svg>
+      {/* Lesson Nodes over the SVG */}
+      {lessons.map((lesson: any, idx: number) => {
+        const state = computeLessonState(lesson, idx);
+        const prevState = idx > 0 ? computeLessonState(lessons[idx - 1], idx - 1) : "completed";
+        const { x, y } = nodePositions[idx];
+        return (
+          <motion.div
+            key={lesson.id}
+            whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
+            animate={state !== "locked" ? { y: [y - 10, y] } : {}}
+            transition={{
+              duration: 0.31,
+              type: "spring",
+            }}
+            className="absolute"
+            style={{
+              left: x - 32,
+              top: y - 32,
+              width: 64,
+              zIndex: 2,
+            }}
+          >
+            <div className="flex flex-col items-center">
+              <NodeCircle
+                state={state}
+                sequence={lesson.sequence_no}
+                highlight={state === "unlocked" && prevState !== "unlocked"}
+              />
+              <div style={{ width: "250px", maxWidth: "80vw", marginTop: 2 }}>
+                <LessonCard
+                  locked={state === "locked"}
+                  title={lesson.title}
+                  tagIcon={lessonTags[lesson.type]?.icon}
+                  tagLabel={lessonTags[lesson.type]?.label}
+                  xpReward={lesson.xp_reward}
+                  onClick={() => openLesson(lesson, idx)}
+                  remainingXp={lesson.unlock_xp - xp}
+                />
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Utility to get positions for the wavy map path.
+ */
+function getNodePos(idx: number, containerWidth: number) {
+  // Centered on column, wavy left-right offsets
+  const pathOffsets = [0, -0.18, 0.22, -0.13, 0.25, -0.22, 0.17]; // spread out for more lessons
+  const normOffset = pathOffsets[idx % pathOffsets.length];
+  const x =
+    0.5 * containerWidth +
+    normOffset * (containerWidth * 0.34 - 14 * (idx % 2));
+  const y = 64 + idx * 108;
+  return { x, y };
+}
 
 export default QuestTrail;
