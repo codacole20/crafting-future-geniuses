@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Trophy, MessageCircle, Plus, Settings } from "lucide-react";
+import { Flame, MessageCircle, Plus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AppNavigation() {
@@ -10,8 +10,8 @@ export function AppNavigation() {
 
   const navItems = [
     {
-      icon: Trophy,
-      text: "Level Path",
+      icon: Flame,
+      text: "Quest",
       path: "/",
       active: activeTab === "/"
     },
@@ -43,7 +43,7 @@ export function AppNavigation() {
           to={item.path}
           className={cn(
             "flex flex-col items-center justify-center px-4 py-2 rounded-pill transition-all",
-            item.active ? "text-ct-teal" : "text-gray-400"
+            item.active ? "text-[#FACD7B]" : "text-gray-400"
           )}
           onClick={() => setActiveTab(item.path)}
         >

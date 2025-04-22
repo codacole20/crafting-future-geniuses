@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,7 +9,7 @@ import { useEffect, useState } from "react";
 // Pages
 import SplashScreen from "./pages/SplashScreen";
 import Onboarding from "./pages/Onboarding";
-import LevelPath from "./pages/LevelPath";
+import QuestTrail from "./pages/QuestTrail";
 import Chat from "./pages/Chat";
 import ProjectHub from "./pages/ProjectHub";
 import Settings from "./pages/Settings";
@@ -51,7 +50,7 @@ const AppRoutes = () => {
           localStorage.setItem("hasCompletedOnboarding", "true");
           setIsFirstVisit(false);
         }} />} />
-        <Route path="/" element={isFirstVisit ? <Navigate to="/onboarding" replace /> : <LevelPath />} />
+        <Route path="/" element={isFirstVisit ? <Navigate to="/onboarding" replace /> : <QuestTrail />} />
         <Route path="/chat" element={isFirstVisit ? <Navigate to="/onboarding" replace /> : <Chat />} />
         <Route path="/projects" element={isFirstVisit ? <Navigate to="/onboarding" replace /> : <ProjectHub />} />
         <Route path="/settings" element={isFirstVisit ? <Navigate to="/onboarding" replace /> : <Settings />} />
