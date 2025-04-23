@@ -81,20 +81,32 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               key={passion.id}
               whileTap={{ scale: 0.95 }}
               className={`
-                p-4 rounded-card flex items-center border cursor-pointer shadow-ct
+                p-4 rounded-card flex items-center border cursor-pointer shadow-ct transition-colors
                 ${selectedPassions.includes(passion.id) 
                   ? 'border-ct-teal bg-ct-teal/10' 
-                  : 'border-gray-200 bg-ct-white'}
+                  : 'border-gray-200 bg-ct-white hover:bg-gray-50'}
               `}
               onClick={() => handlePassionToggle(passion.id)}
+              role="checkbox"
+              aria-checked={selectedPassions.includes(passion.id)}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handlePassionToggle(passion.id);
+                }
+              }}
             >
               <Checkbox 
                 id={passion.id}
                 checked={selectedPassions.includes(passion.id)}
-                onCheckedChange={() => handlePassionToggle(passion.id)}
-                className="mr-2"
+                className="pointer-events-none mr-2"
               />
-              <label htmlFor={passion.id} className="cursor-pointer flex-1">
+              <label 
+                htmlFor={passion.id} 
+                className="cursor-pointer flex-1 select-none"
+                onClick={(e) => e.preventDefault()}
+              >
                 {passion.label}
               </label>
             </motion.div>
