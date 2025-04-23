@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
@@ -5,6 +6,7 @@ import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
 import { Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 // Mock lesson data - replace with API in prod
 const mockLessons = [
@@ -190,43 +192,79 @@ const QuestTrail = () => {
         
         {/* Lesson modal */}
         {showLessonModal && selectedLesson && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-40 p-2">
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-2">
             <motion.div
-              className="bg-white rounded-card w-full max-w-[420px] p-6 shadow-ct"
-              initial={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-card w-full max-w-[420px] p-6 shadow-lg"
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", damping: 20 }}
             >
               <h2 className="font-poppins font-semibold text-xl mb-4">{selectedLesson.title}</h2>
               <div className="mb-6">
                 {selectedLesson.type === "video" && (
-                  <div className="aspect-video bg-gray-100 rounded flex items-center justify-center mb-4">
-                    <span className="text-gray-500">Video Placeholder</span>
+                  <div className="flex flex-col gap-4">
+                    <div className="aspect-video bg-gray-100 rounded-md flex items-center justify-center">
+                      <iframe 
+                        className="w-full h-full rounded-md"
+                        src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                        title="Video Lesson"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      This video introduces key concepts in AI entrepreneurship and 
+                      explores how artificial intelligence can create new business opportunities.
+                    </p>
                   </div>
                 )}
                 {selectedLesson.type === "quiz" && (
                   <div className="bg-gray-100 rounded p-4">
-                    <b>Quiz coming soon!</b>
+                    <p className="mb-3 font-medium">Which of these is NOT a common way for startups to validate ideas?</p>
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50">
+                        Customer interviews
+                      </div>
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50">
+                        Landing page tests
+                      </div>
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50 bg-[#7BB3E5]/10">
+                        Building the full product first
+                      </div>
+                    </div>
                   </div>
                 )}
                 {selectedLesson.type === "scenario" && (
                   <div className="bg-gray-100 rounded p-4">
-                    <b>Scenario coming soon!</b>
+                    <p className="mb-3 font-medium">You've identified a business opportunity, but aren't sure if customers will pay for it. What's your first step?</p>
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50">
+                        Build an MVP and test with real users
+                      </div>
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50 bg-[#7BB3E5]/10">
+                        Conduct interviews with potential customers
+                      </div>
+                      <div className="p-3 border rounded cursor-pointer hover:bg-gray-50">
+                        Start a crowdfunding campaign
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
               <div className="flex gap-3 justify-end">
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => setShowLessonModal(false)}
                   className="border border-gray-300 rounded-pill px-4 py-2 hover:bg-gray-100"
                 >
                   Close
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => completeLesson(selectedLesson.id)}
-                  className="bg-[#7BB3E5] text-white rounded-pill px-4 py-2"
+                  className="bg-[#7BB3E5] hover:bg-[#6AA3D5] text-white rounded-pill px-4 py-2"
                 >
                   {selectedLesson.type === "video" ? "Mark as Watched" : "Submit Answer"}
-                </button>
+                </Button>
               </div>
             </motion.div>
           </div>
@@ -380,9 +418,9 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
             {/* Node dot/circle */}
             <motion.div
               whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
-              animate={state !== "locked" ? { y: [y - 10, y] } : {}}
+              animate={state !== "locked" ? { y: [y - 5, y] } : {}}
               transition={{
-                duration: 0.31,
+                duration: 0.3,
                 type: "spring",
               }}
               className="absolute"
