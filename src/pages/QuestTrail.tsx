@@ -284,24 +284,21 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
     return d;
   })();
 
-  // Lock icons are centered between nodes if next node is locked
-  const lockPositions = lessons
-    .map((lesson, idx) => {
-      const currState = computeLessonState(lesson, idx);
-      const nextLesson = lessons[idx + 1];
-      if (
-        idx < lessons.length - 1 &&
-        computeLessonState(nextLesson, idx + 1) === "locked"
-      ) {
-        return {
-          x: dotXCenter,
-          y: (nodePositions[idx].y + nodePositions[idx + 1].y) / 2,
-          key: `lock-${idx}`,
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
+  // FIXED: Only show lock icons at transition points between unlocked and locked lessons
+  const lockPositions = [];
+  for (let idx = 0; idx < lessons.length - 1; idx++) {
+    const currentState = computeLessonState(lessons[idx], idx);
+    const nextState = computeLessonState(lessons[idx + 1], idx + 1);
+    
+    // Only add a lock if this is a transition from unlocked/completed to locked
+    if ((currentState === "unlocked" || currentState === "completed") && nextState === "locked") {
+      lockPositions.push({
+        x: dotXCenter,
+        y: (nodePositions[idx].y + nodePositions[idx + 1].y) / 2,
+        key: `lock-${idx}`,
+      });
+    }
+  }
 
   return (
     <div
@@ -342,7 +339,7 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
         />
       </svg>
 
-      {/* Lock Icons centered between nodes */}
+      {/* Lock Icons - show only at transition points */}
       {lockPositions.map(({ x, y, key }) => (
         <div
           key={key}
