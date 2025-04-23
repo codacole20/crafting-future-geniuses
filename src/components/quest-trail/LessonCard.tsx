@@ -22,11 +22,10 @@ export default function LessonCard({
 }: LessonCardProps) {
   return (
     <div
-      className={`w-[85%] mx-auto rounded-card shadow-ct flex flex-col px-4 py-3 transition-all 
+      className={`w-full rounded-card shadow-ct flex flex-col px-4 py-3 transition-all 
         ${locked ? "bg-[#F4F4F4]/40 cursor-not-allowed" : "bg-white cursor-pointer"}
       `}
       onClick={locked ? undefined : onClick}
-      style={{ marginTop: -6, marginBottom: 0 }}
     >
       <div className="font-poppins font-semibold text-base text-gray-900">{title}</div>
       <div className="flex justify-between items-center mt-1">

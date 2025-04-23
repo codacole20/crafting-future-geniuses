@@ -26,7 +26,6 @@ export default function NodeCircle({ state, sequence, highlight }: NodeCirclePro
         }}
         style={{
           width: 48, height: 48,
-          marginBottom: 8,
         }}
       >
         <Check size={28} color="white" />
@@ -40,7 +39,6 @@ export default function NodeCircle({ state, sequence, highlight }: NodeCirclePro
         style={{
           width: 48,
           height: 48,
-          marginBottom: 8,
           background: "rgba(235,195,103,0.04)",
           border: "2px solid #EBC367",
           color: "#EBC367",
@@ -68,7 +66,6 @@ export default function NodeCircle({ state, sequence, highlight }: NodeCirclePro
       style={{
         width: 48,
         height: 48,
-        marginBottom: 8,
       }}
       initial={highlight ? { scale: 0.8 } : { scale: 1 }}
       animate={

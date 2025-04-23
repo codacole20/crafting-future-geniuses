@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
@@ -156,21 +155,6 @@ const QuestTrail = () => {
     }
   };
 
-  // Calculate positions for nodes along a wavy path
-  const N = lessons.length;
-  const ySpacing = 112; // px between nodes
-  const xCenter = 0.5; // as percent of container width
-
-  function getNodePos(idx: number, containerWidth: number) {
-    const normOffset = pathOffsets[idx % pathOffsets.length];
-    // Waviness increases as you go down (to avoid all nodes line up exactly)
-    const x =
-      xCenter * containerWidth +
-      normOffset * (containerWidth * (0.35 - 0.07 * (idx % 2))); // Vary amplitude
-    const y = 56 + idx * ySpacing;
-    return { x, y };
-  }
-
   // Responsive: Render nothing if no lessons
   if (!lessons || lessons.length === 0) {
     return (
@@ -190,7 +174,7 @@ const QuestTrail = () => {
         background: PATH_GRADIENT,
       }}
     >
-      <div className="w-full max-w-[480px] flex flex-col items-center relative">
+      <div className="w-full max-w-[480px] flex flex-col items-center relative pb-24">
         <HeaderCard xp={xp} streak={streak} streakGlow={streakGlow} />
         <h1 className="text-2xl font-poppins font-semibold mt-3 mb-8 text-gray-800">
           Quest Trail
@@ -202,7 +186,8 @@ const QuestTrail = () => {
           lessonTags={lessonTags}
           openLesson={openLesson}
         />
-        {/* Lesson modal follows original behavior */}
+        
+        {/* Lesson modal */}
         {showLessonModal && selectedLesson && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-40 p-2">
             <motion.div
@@ -266,11 +251,12 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Calculate positions for nodes along a wavy path
   const nodePositions = lessons.map((_: any, idx: number) =>
-    getNodePos(idx, containerWidth)
+    getTrailNodePos(idx, containerWidth)
   );
 
-  // Create SVG path for background
+  // Create SVG path for background trail
   const svgPathD = (() => {
     if (nodePositions.length < 2) return "";
     let d = `M ${nodePositions[0].x} ${nodePositions[0].y}`;
@@ -285,19 +271,23 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
     return d;
   })();
 
+  // The last node position determines the total height
+  const lastNodePos = nodePositions[nodePositions.length - 1];
+  const totalHeight = lastNodePos ? lastNodePos.y + 140 : 600;
+
   return (
     <div
       className="relative w-full mx-auto"
       style={{
-        minHeight: nodePositions[nodePositions.length - 1].y + 94,
-        height: nodePositions[nodePositions.length - 1].y + 94,
+        minHeight: totalHeight,
+        height: totalHeight,
         maxWidth: containerWidth,
       }}
     >
       {/* SVG Path (trail) */}
       <svg
         width={containerWidth}
-        height={nodePositions[nodePositions.length - 1].y + 94}
+        height={totalHeight}
         className="absolute left-1/2 -translate-x-1/2 top-0 z-0 pointer-events-none"
       >
         <defs>
@@ -323,11 +313,13 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
           }}
         />
       </svg>
+      
       {/* Lesson Nodes over the SVG */}
       {lessons.map((lesson: any, idx: number) => {
         const state = computeLessonState(lesson, idx);
         const prevState = idx > 0 ? computeLessonState(lessons[idx - 1], idx - 1) : "completed";
         const { x, y } = nodePositions[idx];
+        
         return (
           <motion.div
             key={lesson.id}
@@ -337,21 +329,23 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
               duration: 0.31,
               type: "spring",
             }}
-            className="absolute"
+            className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{
-              left: x - 32,
-              top: y - 32,
-              width: 64,
+              left: x,
+              top: y,
               zIndex: 2,
             }}
           >
+            {/* Node Circle Component */}
             <div className="flex flex-col items-center">
               <NodeCircle
                 state={state}
                 sequence={lesson.sequence_no}
                 highlight={state === "unlocked" && prevState !== "unlocked"}
               />
-              <div style={{ width: "250px", maxWidth: "80vw", marginTop: 2 }}>
+              
+              {/* Lesson Card */}
+              <div className="mt-14" style={{ width: "280px", maxWidth: "85vw" }}>
                 <LessonCard
                   locked={state === "locked"}
                   title={lesson.title}
@@ -371,16 +365,19 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
 }
 
 /**
- * Utility to get positions for the wavy map path.
+ * Get positions for nodes along the wavy path with improved spacing
  */
-function getNodePos(idx: number, containerWidth: number) {
-  // Centered on column, wavy left-right offsets
-  const pathOffsets = [0, -0.18, 0.22, -0.13, 0.25, -0.22, 0.17]; // spread out for more lessons
+function getTrailNodePos(idx: number, containerWidth: number) {
+  // Centered on column, wavy left-right offsets with wider spacing
+  const pathOffsets = [0, -0.18, 0.22, -0.13, 0.25, -0.22, 0.17]; 
   const normOffset = pathOffsets[idx % pathOffsets.length];
-  const x =
-    0.5 * containerWidth +
-    normOffset * (containerWidth * 0.34 - 14 * (idx % 2));
-  const y = 64 + idx * 108;
+  
+  // Calculate x position with horizontal offset
+  const x = 0.5 * containerWidth + normOffset * (containerWidth * 0.34 - 14 * (idx % 2));
+  
+  // Increase vertical spacing between nodes significantly
+  const y = 120 + idx * 180;
+  
   return { x, y };
 }
 
