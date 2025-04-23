@@ -1,12 +1,15 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { PlusCircle, TrendingUp, DollarSign, Instagram, ChevronRight } from "lucide-react";
+import { PlusCircle, TrendingUp, DollarSign, Instagram, ChevronRight, Edit, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useToast } from "@/hooks/use-toast";
+import { Card } from "@/components/ui/card";
 
 // Mock project data
 interface Project {
@@ -61,6 +64,10 @@ const ProjectHub = () => {
     passionTags: [] as string[],
   });
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [revenueInput, setRevenueInput] = useState<number | ''>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   // Available passion tags
   const availableTags = [
@@ -125,6 +132,71 @@ const ProjectHub = () => {
       return (num / 1000).toFixed(1) + 'k';
     }
     return num.toString();
+  };
+  
+  const handleEditRevenue = () => {
+    if (!selectedProject) return;
+    setRevenueInput(selectedProject.revenue);
+    setIsEditing(true);
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setRevenueInput('');
+  };
+  
+  const handleSaveRevenue = () => {
+    if (!selectedProject) return;
+    
+    if (revenueInput === '' || (typeof revenueInput === 'number' && revenueInput < 0)) {
+      toast({
+        title: "🚫 Couldn't save",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      try {
+        // Update the project in the projects array
+        const updatedProjects = projects.map(p => {
+          if (p.id === selectedProject.id) {
+            return {
+              ...p, 
+              revenue: typeof revenueInput === 'number' ? revenueInput : 0
+            };
+          }
+          return p;
+        });
+        
+        setProjects(updatedProjects);
+        
+        // Update the selected project
+        setSelectedProject(prev => prev ? {
+          ...prev,
+          revenue: typeof revenueInput === 'number' ? revenueInput : 0
+        } : null);
+        
+        setIsEditing(false);
+        setIsSaving(false);
+        
+        toast({
+          title: "💰 Revenue saved.",
+          description: "Project revenue has been updated",
+        });
+      } catch (error) {
+        setIsSaving(false);
+        toast({
+          title: "🚫 Couldn't save. Check connection.",
+          description: "Please try again",
+          variant: "destructive",
+        });
+      }
+    }, 800);
   };
 
   return (
@@ -322,57 +394,119 @@ const ProjectHub = () => {
             </DialogHeader>
             
             <div className="space-y-4">
+              {/* Project Details */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <h3 className="font-medium mb-1">Problem Statement</h3>
+                  <p className="text-gray-600 text-sm">{selectedProject.problem}</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-1">Unique Approach</h3>
+                  <p className="text-gray-600 text-sm">{selectedProject.uniqueness}</p>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {selectedProject.passionTags.map((tag) => (
+                    <span 
+                      key={tag} 
+                      className="text-xs bg-ct-sky/20 text-gray-700 px-2 py-1 rounded-pill"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Divider */}
+              <div className="border-t border-gray-200"></div>
+              
+              {/* Performance Metrics */}
               <div>
-                <h3 className="font-medium mb-1">Problem Statement</h3>
-                <p className="text-gray-600 text-sm">{selectedProject.problem}</p>
-              </div>
-              
-              <div>
-                <h3 className="font-medium mb-1">Unique Approach</h3>
-                <p className="text-gray-600 text-sm">{selectedProject.uniqueness}</p>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {selectedProject.passionTags.map((tag) => (
-                  <span 
-                    key={tag} 
-                    className="text-xs bg-ct-sky/20 text-gray-700 px-2 py-1 rounded-pill"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              
-              <div className="border-t pt-4 mt-4">
                 <h3 className="font-medium mb-3">Performance Metrics</h3>
                 
-                {/* --- Layout update starts here --- */}
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* Revenue Section */}
-                  <div className="md:w-1/2 w-full">
-                    <div className="font-medium mb-2 flex items-center">
-                      <DollarSign size={16} className="inline-block text-green-600 mr-1" />
-                      Revenue
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Revenue Card */}
+                  <Card className="p-5 relative">
+                    {isSaving && (
+                      <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-lg z-10">
+                        <Loader2 className="animate-spin text-ct-teal" />
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <DollarSign size={18} className="text-green-600 mr-1" />
+                        <span className="font-medium">Revenue</span>
+                      </div>
+                      {!isEditing && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditRevenue();
+                          }}
+                          className="text-ct-teal hover:text-ct-teal/90 p-1 h-auto"
+                        >
+                          <Edit size={16} />
+                          <span className="ml-1">Edit</span>
+                        </Button>
+                      )}
                     </div>
-                    <div className="w-full flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                      <span className="text-xl font-semibold">${selectedProject.revenue}</span>
-                      <div className="flex items-center gap-2">
+                    
+                    <div className="text-3xl font-semibold mb-2">
+                      ${selectedProject.revenue}
+                    </div>
+                    
+                    {/* Edit Panel */}
+                    {isEditing && (
+                      <div className="mt-3 flex flex-wrap gap-3 items-center">
                         <Input
                           type="number"
-                          placeholder="Update revenue"
-                          className="w-32 h-8 text-sm"
+                          min={0}
+                          value={revenueInput}
+                          onChange={(e) => setRevenueInput(e.target.value === '' ? '' : Number(e.target.value))}
+                          className="w-32"
+                          placeholder="Enter amount"
+                          autoFocus
                         />
-                        <Button size="sm" className="h-8 bg-ct-teal">Update</Button>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveRevenue();
+                            }}
+                            size="sm"
+                            className="bg-ct-teal hover:bg-ct-teal/90"
+                          >
+                            Save
+                          </Button>
+                          
+                          <Button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelEdit();
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            className="text-ct-teal"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
+                  </Card>
                   
-                  {/* Instagram Analytics */}
-                  <div className="md:w-1/2 w-full">
-                    <div className="font-medium mb-2 flex items-center">
-                      <Instagram size={16} className="inline-block text-purple-600 mr-1" />
-                      Instagram Analytics
+                  {/* Instagram Analytics Card */}
+                  <Card className="p-5">
+                    <div className="flex items-center mb-2">
+                      <Instagram size={18} className="text-purple-600 mr-1" />
+                      <span className="font-medium">Instagram Analytics</span>
                     </div>
+                    
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-gray-50 p-2 rounded-md">
                         <div className="text-xs text-gray-600">Views</div>
@@ -387,11 +521,11 @@ const ProjectHub = () => {
                         <div className="font-semibold">{formatNumber(selectedProject.instagramMetrics.clicks)}</div>
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 </div>
-                {/* --- Layout update ends here --- */}
                 
-                <div className="bg-gray-50 p-3 rounded-md mt-4">
+                {/* XP Bonuses */}
+                <Card className="bg-gray-50 p-4 mt-4 border">
                   <div className="font-medium mb-2">XP Bonuses</div>
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between mb-1">
@@ -403,7 +537,7 @@ const ProjectHub = () => {
                       <span>+{Math.floor(selectedProject.instagramMetrics.views / 1000) * 10} XP</span>
                     </div>
                   </div>
-                </div>
+                </Card>
               </div>
             </div>
           </DialogContent>
@@ -414,4 +548,3 @@ const ProjectHub = () => {
 };
 
 export default ProjectHub;
-
