@@ -346,15 +346,17 @@ const ProjectHub = () => {
               <div className="border-t pt-4 mt-4">
                 <h3 className="font-medium mb-3">Performance Metrics</h3>
                 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <div className="font-medium mb-2">
+                {/* --- Layout update starts here --- */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Revenue Section */}
+                  <div className="md:w-1/2 w-full">
+                    <div className="font-medium mb-2 flex items-center">
                       <DollarSign size={16} className="inline-block text-green-600 mr-1" />
                       Revenue
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="w-full flex flex-col sm:flex-row items-start sm:items-center gap-2">
                       <span className="text-xl font-semibold">${selectedProject.revenue}</span>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Input
                           type="number"
                           placeholder="Update revenue"
@@ -365,8 +367,9 @@ const ProjectHub = () => {
                     </div>
                   </div>
                   
-                  <div>
-                    <div className="font-medium mb-2">
+                  {/* Instagram Analytics */}
+                  <div className="md:w-1/2 w-full">
+                    <div className="font-medium mb-2 flex items-center">
                       <Instagram size={16} className="inline-block text-purple-600 mr-1" />
                       Instagram Analytics
                     </div>
@@ -386,8 +389,9 @@ const ProjectHub = () => {
                     </div>
                   </div>
                 </div>
+                {/* --- Layout update ends here --- */}
                 
-                <div className="bg-gray-50 p-3 rounded-md">
+                <div className="bg-gray-50 p-3 rounded-md mt-4">
                   <div className="font-medium mb-2">XP Bonuses</div>
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between mb-1">
