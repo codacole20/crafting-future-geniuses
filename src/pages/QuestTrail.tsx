@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
+import LessonModal from "@/components/quest-trail/LessonModal";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { CircleCheck, Lock, Circle } from "lucide-react";
@@ -79,8 +80,8 @@ function NodeTooltip({ text, visible }: { text: string; visible: boolean }) {
   );
 }
 
-// --- NodeCircle component with tooltip ---
-function NodeCircle({
+// --- TrailNodeCircle component with tooltip (renamed to avoid conflict) ---
+function TrailNodeCircle({
   state,
   sequence,
   highlight,
@@ -137,8 +138,8 @@ function NodeCircle({
   );
 }
 
-// --- LessonCard (simplified for trail) ---
-function LessonCard({
+// --- TrailLessonCard (simplified for trail, renamed to avoid conflict) ---
+function TrailLessonCard({
   locked,
   title,
   tagIcon,
@@ -192,8 +193,8 @@ function LessonCard({
   );
 }
 
-// --- LessonModal flow --- 
-function LessonModal({ open, lesson, onClose, onComplete }: {
+// --- TrailLessonModal (renamed to avoid potential conflict) --- 
+function TrailLessonModal({ open, lesson, onClose, onComplete }: {
   open: boolean;
   lesson: any;
   onClose: () => void;
@@ -415,8 +416,8 @@ const QuestTrail = () => {
                 className="flex flex-col items-center relative w-full"
                 style={{ marginBottom: 80 }}
               >
-                {/* NodeCircle with Tooltip */}
-                <NodeCircle
+                {/* TrailNodeCircle with Tooltip */}
+                <TrailNodeCircle
                   state={state}
                   sequence={lesson.sequence_no}
                   highlight={state === "unlocked" && prevState !== "unlocked"}
@@ -426,8 +427,8 @@ const QuestTrail = () => {
                   onLeave={() => setHoveredIndex(null)}
                   onClick={() => openLesson(lesson)}
                 />
-                {/* LessonCard */}
-                <LessonCard
+                {/* TrailLessonCard */}
+                <TrailLessonCard
                   locked={state === "locked"}
                   title={lesson.title}
                   tagIcon={lessonTags[lesson.type]?.icon}
@@ -440,7 +441,7 @@ const QuestTrail = () => {
           })}
         </div>
         {/* Modal for lesson actions */}
-        <LessonModal
+        <TrailLessonModal
           open={showLessonModal}
           lesson={selectedLesson}
           onClose={() => setShowLessonModal(false)}
