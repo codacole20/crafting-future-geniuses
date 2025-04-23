@@ -36,7 +36,7 @@ export function AppNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-ct-white shadow-ct flex justify-around py-2 z-10">
+    <nav className="fixed bottom-0 left-0 right-0 bg-ct-white shadow-ct flex justify-around py-2 z-40">
       {navItems.map((item) => (
         <Link
           key={item.path}

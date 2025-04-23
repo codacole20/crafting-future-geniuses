@@ -91,9 +91,18 @@ const QuestTrail = () => {
     const savedXp = localStorage.getItem("userXp");
     const savedStreak = localStorage.getItem("userStreak");
     const savedLessons = localStorage.getItem("userLessons");
+    
     if (savedXp) setXp(parseInt(savedXp));
     if (savedStreak) setStreak(parseInt(savedStreak));
-    if (savedLessons) setLessons(JSON.parse(savedLessons));
+    if (savedLessons) {
+      try {
+        const parsedLessons = JSON.parse(savedLessons);
+        setLessons(parsedLessons);
+      } catch (e) {
+        console.error("Error parsing saved lessons:", e);
+        setLessons(mockLessons);
+      }
+    }
 
     const today = new Date().toDateString();
     const lastLoginDate = localStorage.getItem("lastLoginDate");
@@ -103,7 +112,7 @@ const QuestTrail = () => {
         (new Date().getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (diffDays === 1) {
-        const newStreak = (parseInt(savedStreak || "0") || 0) + 1;
+        const newStreak = parseInt(savedStreak || "0") + 1;
         setStreak(newStreak);
         localStorage.setItem("userStreak", newStreak.toString());
         setStreakGlow(true);
@@ -172,7 +181,7 @@ const QuestTrail = () => {
   // Main trail body
   return (
     <div
-      className="w-full flex justify-center min-h-screen py-0 sm:py-4 lg:py-8"
+      className="w-full flex justify-center min-h-screen py-0 sm:py-4 lg:py-8 pb-24"
       style={{
         background: PATH_GRADIENT,
       }}
@@ -192,7 +201,7 @@ const QuestTrail = () => {
         
         {/* Lesson modal */}
         {showLessonModal && selectedLesson && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-2">
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-30 p-2">
             <motion.div
               className="bg-white rounded-card w-full max-w-[420px] p-6 shadow-lg"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -322,7 +331,7 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
     return d;
   })();
 
-  // FIXED: Only show lock icons at transition points between unlocked and locked lessons
+  // Only show lock icons at transition points between unlocked and locked lessons
   const lockPositions = [];
   for (let idx = 0; idx < lessons.length - 1; idx++) {
     const currentState = computeLessonState(lessons[idx], idx);
@@ -418,7 +427,7 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
             {/* Node dot/circle */}
             <motion.div
               whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
-              animate={state !== "locked" ? { y: [y - 5, y] } : {}}
+              animate={state !== "locked" ? { y: [y - 5, y] } : { y }}
               transition={{
                 duration: 0.3,
                 type: "spring",

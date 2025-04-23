@@ -16,7 +16,7 @@ export default function NodeCircle({ state, sequence, highlight }: NodeCirclePro
     return (
       <motion.div
         className={baseClasses + " bg-[#A2E3F4]"}
-        initial={{ scale: 0.6 }}
+        initial={{ scale: 0.9 }}
         animate={{ scale: 1 }}
         transition={{
           duration: 0.3,

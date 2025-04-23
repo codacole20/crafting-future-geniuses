@@ -26,7 +26,6 @@ export default function LessonCard({
   onClick,
   remainingXp,
 }: LessonCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
   
   return (
     <div
@@ -34,8 +33,6 @@ export default function LessonCard({
         ${locked ? "bg-[#F4F4F4]/40 cursor-not-allowed" : "bg-white cursor-pointer hover:bg-gray-50"}
       `}
       onClick={locked ? undefined : onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="font-poppins font-semibold text-base text-gray-900">{title}</div>
       <div className="flex justify-between items-center mt-1">
