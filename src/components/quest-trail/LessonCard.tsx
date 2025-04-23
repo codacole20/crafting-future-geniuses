@@ -1,11 +1,5 @@
 
-import { useState } from "react";
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
+import { Tooltip } from "@radix-ui/react-tooltip";
 
 interface LessonCardProps {
   locked: boolean;
@@ -26,29 +20,20 @@ export default function LessonCard({
   onClick,
   remainingXp,
 }: LessonCardProps) {
-  
   return (
     <div
-      className={`w-full rounded-card shadow-ct flex flex-col px-4 py-3 transition-all 
-        ${locked ? "bg-[#F4F4F4]/40 cursor-not-allowed" : "bg-white cursor-pointer hover:bg-gray-50"}
+      className={`w-[85%] mx-auto rounded-card shadow-ct flex flex-col px-4 py-3 transition-all 
+        ${locked ? "bg-[#F4F4F4]/40 cursor-not-allowed" : "bg-white cursor-pointer"}
       `}
       onClick={locked ? undefined : onClick}
+      style={{ marginTop: -6, marginBottom: 0 }}
     >
       <div className="font-poppins font-semibold text-base text-gray-900">{title}</div>
       <div className="flex justify-between items-center mt-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center text-[#7BB3E5] text-lg font-poppins">
-                <span>{tagIcon}</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>{tagLabel}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
+        <div className="flex items-center gap-2 text-[#7BB3E5] text-sm font-poppins">
+          <span className="text-lg">{tagIcon}</span>
+          <span>{tagLabel}</span>
+        </div>
         <span className="ml-auto">
           <span className="bg-[#E8F9FF] text-[#A2E3F4] font-poppins px-3 py-[2.5px] rounded-pill font-semibold text-xs shadow-sm">
             +{xpReward} XP
