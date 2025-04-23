@@ -39,6 +39,39 @@ export type Database = {
         }
         Relationships: []
       }
+      lessons: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          sequence_no: number
+          title: string
+          type: string
+          unlock_xp: number
+          xp_reward: number
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          sequence_no: number
+          title: string
+          type: string
+          unlock_xp?: number
+          xp_reward?: number
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          sequence_no?: number
+          title?: string
+          type?: string
+          unlock_xp?: number
+          xp_reward?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

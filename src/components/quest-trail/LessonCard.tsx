@@ -1,4 +1,3 @@
-
 interface LessonCardProps {
   locked: boolean;
   title: string;
@@ -17,6 +16,8 @@ export default function LessonCard({
   onClick,
   remainingXp,
 }: LessonCardProps) {
+  const displayXpReward = Number(xpReward) || 0;
+  
   return (
     <div
       className={`w-full max-w-[300px] mx-auto rounded-[16px] shadow-ct px-4 py-3 mt-1 mb-0 transition-all
@@ -41,7 +42,7 @@ export default function LessonCard({
           className="ml-auto bg-[#E2F4FD] text-[#7BB3E5] font-poppins px-3 py-[2.5px] rounded-pill font-semibold text-xs shadow-sm"
           style={{ marginLeft: "auto" }}
         >
-          +{xpReward} XP
+          +{displayXpReward} XP
         </span>
       </div>
       {locked && (

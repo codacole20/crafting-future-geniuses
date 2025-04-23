@@ -26,9 +26,11 @@ export default function LessonModal({
   };
 
   const handleComplete = async () => {
+    const xpToAward = Number(lesson.xp_reward) || 0;
     setLoading(true);
     try {
       await onComplete();
+      // The XP update will be handled by the parent component
     } catch (error) {
       console.error("Failed to complete lesson:", error);
     } finally {

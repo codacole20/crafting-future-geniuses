@@ -7,6 +7,7 @@ interface HeaderCardProps {
   streak: number;
   streakGlow?: boolean;
 }
+
 export default function HeaderCard({ xp, streak, streakGlow }: HeaderCardProps) {
   const displayXp = Number(xp) || 0; // Ensure XP is always a number, defaulting to 0
   
