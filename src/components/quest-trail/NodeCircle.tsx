@@ -2,87 +2,65 @@
 import { Check, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface NodeCircleProps {
+export default function NodeCircle({
+  state,
+  sequence,
+  highlight,
+}: {
   state: "completed" | "unlocked" | "locked";
   sequence: number;
   highlight?: boolean;
-}
-
-export default function NodeCircle({ state, sequence, highlight }: NodeCircleProps) {
-  const baseClasses =
-    "flex items-center justify-center rounded-full shadow-ct text-white font-poppins font-bold";
+}) {
+  // Colors: Unlocked #7BB3E5, Completed #A2E3F4, Locked 2px #EBC367
   if (state === "completed") {
     return (
       <motion.div
-        className={baseClasses + " bg-[#A2E3F4]"}
-        initial={{ scale: 0.6 }}
-        animate={{
-          scale: [0.6, 1.1, 1],
-        }}
-        transition={{
-          duration: 0.32,
-          times: [0, 0.7, 1],
-          type: "spring",
-        }}
-        style={{
-          width: 48, height: 48,
-          marginBottom: 8,
-        }}
+        className="node-circle node-completed flex items-center justify-center"
+        initial={highlight ? { scale: 0.85 } : false}
+        animate={highlight ? { scale: [0.85, 1] } : undefined}
+        transition={{ duration: 0.34, type: "spring" }}
+        style={{ width: 44, height: 44, marginBottom: 8 }}
       >
-        <Check size={28} color="white" />
+        <Check size={28} color="#fff" />
       </motion.div>
     );
   }
   if (state === "locked") {
     return (
       <motion.div
-        className={baseClasses}
+        className="node-circle node-locked flex items-center justify-center"
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           marginBottom: 8,
-          background: "rgba(235,195,103,0.04)",
+          background: "transparent",
           border: "2px solid #EBC367",
           color: "#EBC367",
         }}
-        initial={highlight ? { scale: 0.8 } : false}
-        animate={
-          highlight
-            ? { scale: [1, 1.21, 0.95, 1.12, 1] }
-            : undefined
-        }
-        transition={{
-          times: [0, 0.35, 0.7, 0.92, 1],
-          duration: 0.44,
-          type: "spring",
-        }}
+        initial={highlight ? { scale: 0.85 } : false}
+        animate={highlight ? { scale: [0.85, 1] } : undefined}
+        transition={{ duration: 0.34, type: "spring" }}
       >
-        <Lock size={28} color="#EBC367" />
+        <Lock size={26} color="#EBC367" />
       </motion.div>
     );
   }
   // unlocked
   return (
     <motion.div
-      className={baseClasses + " bg-[#7BB3E5]"}
+      className="node-circle node-unlocked flex items-center justify-center"
       style={{
-        width: 48,
-        height: 48,
+        width: 44,
+        height: 44,
         marginBottom: 8,
+        background: "#7BB3E5",
+        color: "#fff",
       }}
-      initial={highlight ? { scale: 0.8 } : { scale: 1 }}
-      animate={
-        highlight
-          ? { scale: [0.8, 1.12, 0.94, 1.01, 1], boxShadow: ["0 0 0 0 #FACD7B", "0 0 13px 2px #FACD7B", "0 0 0 0 #FACD7B"] }
-          : undefined
-      }
-      transition={{
-        times: [0, 0.28, 0.5, 0.70, 1],
-        duration: 0.36,
-        type: "spring",
-      }}
+      initial={highlight ? { scale: 0.85 } : { scale: 1 }}
+      animate={highlight ? { scale: [0.85, 1] } : undefined}
+      transition={{ duration: 0.34, type: "spring" }}
     >
-      <span className="text-xl">{sequence}</span>
+      <span className="text-base font-bold">{sequence}</span>
     </motion.div>
   );
 }

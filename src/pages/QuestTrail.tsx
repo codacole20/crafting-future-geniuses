@@ -1,11 +1,12 @@
-
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
-import { CircleCheck, Lock, Circle } from "lucide-react";
+import NodeCircle from "@/components/quest-trail/NodeCircle";
+import LessonCard from "@/components/quest-trail/LessonCard";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
+import { CircleCheck, Lock, Circle } from "lucide-react";
 
-// Mock lesson data - replace with API in prod
+// Mock data
 const mockLessons = [
   {
     id: "lesson1",
