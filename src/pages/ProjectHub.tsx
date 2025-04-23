@@ -352,14 +352,16 @@ const ProjectHub = () => {
                       <DollarSign size={16} className="inline-block text-green-600 mr-1" />
                       Revenue
                     </div>
-                    <div className="flex items-center">
+                    <div className="flex items-center space-x-2">
                       <span className="text-xl font-semibold">${selectedProject.revenue}</span>
-                      <Input
-                        type="number"
-                        placeholder="Update revenue"
-                        className="w-32 ml-3 h-8 text-sm"
-                      />
-                      <Button size="sm" className="ml-2 h-8 bg-ct-teal">Update</Button>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          placeholder="Update revenue"
+                          className="w-32 h-8 text-sm"
+                        />
+                        <Button size="sm" className="h-8 bg-ct-teal">Update</Button>
+                      </div>
                     </div>
                   </div>
                   
@@ -408,3 +410,4 @@ const ProjectHub = () => {
 };
 
 export default ProjectHub;
+
