@@ -1,20 +1,21 @@
 
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function LessonModal({
   open,
   lesson,
-  loading,
   onClose,
   onComplete,
 }: {
   open: boolean;
   lesson: any;
-  loading: boolean;
   onClose: () => void;
   onComplete: () => void;
 }) {
+  const [loading, setLoading] = useState(false);
+  
   if (!open || !lesson) return null;
 
   const getButtonLabel = () => {
@@ -22,6 +23,17 @@ export default function LessonModal({
     if (lesson.type === "quiz") return "Submit Quiz";
     if (lesson.type === "scenario") return "Finish Scenario";
     return "Complete";
+  };
+
+  const handleComplete = async () => {
+    setLoading(true);
+    try {
+      await onComplete();
+    } catch (error) {
+      console.error("Failed to complete lesson:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,7 +72,7 @@ export default function LessonModal({
             Close
           </button>
           <Button
-            onClick={onComplete}
+            onClick={handleComplete}
             disabled={loading}
             className="bg-[#7BB3E5] text-white px-4 py-2 rounded-pill min-w-[128px]"
           >

@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
+import LessonModal from "@/components/quest-trail/LessonModal";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { CircleCheck, Lock, Circle } from "lucide-react";
@@ -261,6 +263,7 @@ const QuestTrail = () => {
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [streakGlow, setStreakGlow] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
   // For tooltips (hover/long-press); stores the index of node hovered
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -305,23 +308,43 @@ const QuestTrail = () => {
     return "locked";
   };
 
-  const completeLesson = (lessonId: string) => {
-    const idx = lessons.findIndex((l) => l.id === lessonId);
-    if (idx === -1) return;
-    if (lessons[idx].completed) return;
+  const completeLesson = async (lessonId: string) => {
+    try {
+      setModalLoading(true);
+      
+      const idx = lessons.findIndex((l) => l.id === lessonId);
+      if (idx === -1) return;
+      if (lessons[idx].completed) return;
 
-    const newXp = xp + lessons[idx].xp_reward;
-    const updatedLessons = [...lessons];
-    updatedLessons[idx].completed = true;
-    setLessons(updatedLessons);
-    setXp(newXp);
-    setShowLessonModal(false);
-    toast({
-      title: `+${lessons[idx].xp_reward} XP`,
-      description: "",
-    });
-    localStorage.setItem("userXp", newXp.toString());
-    localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
+      const newXp = xp + lessons[idx].xp_reward;
+      const updatedLessons = [...lessons];
+      updatedLessons[idx].completed = true;
+      
+      // Update local state
+      setLessons(updatedLessons);
+      setXp(newXp);
+      
+      // Show success toast
+      toast({
+        title: `+${lessons[idx].xp_reward} XP`,
+        description: "",
+      });
+      
+      // Update localStorage
+      localStorage.setItem("userXp", newXp.toString());
+      localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
+      
+      // Close modal
+      setShowLessonModal(false);
+    } catch (error) {
+      console.error("Error completing lesson:", error);
+      toast({
+        title: "Couldn't save — try again.",
+        description: "",
+      });
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const openLesson = (lesson: any) => {
@@ -437,12 +460,12 @@ const QuestTrail = () => {
             );
           })}
         </div>
-        <TrailLessonModal
+        <LessonModal
           open={showLessonModal}
           lesson={selectedLesson}
           onClose={() => setShowLessonModal(false)}
-          onComplete={() => {
-            if (selectedLesson) completeLesson(selectedLesson.id);
+          onComplete={async () => {
+            if (selectedLesson) await completeLesson(selectedLesson.id);
           }}
         />
       </div>
