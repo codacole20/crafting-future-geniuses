@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
+import { Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Mock lesson data - replace with API in prod
@@ -236,7 +237,7 @@ const QuestTrail = () => {
 };
 
 /**
- * TrailBoard aligns nodes along a wavy svg path background for a modern game-like map.
+ * TrailBoard alternates lesson cards left/right and centers lock icons.
  */
 function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }: any) {
   // Responds to window width (max 440px)
@@ -251,43 +252,70 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Calculate positions for nodes along a wavy path
-  const nodePositions = lessons.map((_: any, idx: number) =>
-    getTrailNodePos(idx, containerWidth)
-  );
+  // Clean, elegant: center the path, alternate cards, no overlaps
+  const nodeYStart = 90; // set the top offset for first node
+  const yStep = 150; // vertical gap, more compact
+  const dotXCenter = containerWidth / 2;
 
-  // Create SVG path for background trail
+  // Alternate left/right for cards, always align node on center
+  const leftCardX = dotXCenter - 165; // left side relative to center
+  const rightCardX = dotXCenter + 26; // right side relative to center
+  const cardWidth = 270;
+  
+  // Calculate node positions and card sides
+  const nodePositions = lessons.map((_, idx) => ({
+    x: dotXCenter,
+    y: nodeYStart + idx * yStep,
+    cardSide: idx % 2 === 0 ? "right" : "left", // Start: first card on right, then alternate
+  }));
+
+  // SVG path through all nodes (vertical but slightly curved for style)
   const svgPathD = (() => {
     if (nodePositions.length < 2) return "";
-    let d = `M ${nodePositions[0].x} ${nodePositions[0].y}`;
+    let d = `M ${dotXCenter} ${nodePositions[0].y}`;
     for (let i = 1; i < nodePositions.length; i++) {
-      // Use quadratic curve between points
+      // Add gentle curve for some organic feel
       const prev = nodePositions[i - 1];
       const curr = nodePositions[i];
-      const controlX = (prev.x + curr.x) / 2 + (i % 2 === 0 ? 16 : -16);
+      const curveX = dotXCenter + (i % 2 === 0 ? 20 : -20); // alternate curve
       const controlY = (prev.y + curr.y) / 2;
-      d += ` Q ${controlX} ${controlY} ${curr.x} ${curr.y}`;
+      d += ` Q ${curveX} ${controlY} ${dotXCenter} ${curr.y}`;
     }
     return d;
   })();
 
-  // The last node position determines the total height
-  const lastNodePos = nodePositions[nodePositions.length - 1];
-  const totalHeight = lastNodePos ? lastNodePos.y + 140 : 600;
+  // Lock icons are centered between nodes if next node is locked
+  const lockPositions = lessons
+    .map((lesson, idx) => {
+      const currState = computeLessonState(lesson, idx);
+      const nextLesson = lessons[idx + 1];
+      if (
+        idx < lessons.length - 1 &&
+        computeLessonState(nextLesson, idx + 1) === "locked"
+      ) {
+        return {
+          x: dotXCenter,
+          y: (nodePositions[idx].y + nodePositions[idx + 1].y) / 2,
+          key: `lock-${idx}`,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
 
   return (
     <div
       className="relative w-full mx-auto"
       style={{
-        minHeight: totalHeight,
-        height: totalHeight,
+        height: nodePositions[nodePositions.length - 1].y + 170,
+        minHeight: nodePositions[nodePositions.length - 1].y + 170,
         maxWidth: containerWidth,
       }}
     >
-      {/* SVG Path (trail) */}
+      {/* SVG Path */}
       <svg
         width={containerWidth}
-        height={totalHeight}
+        height={nodePositions[nodePositions.length - 1].y + 170}
         className="absolute left-1/2 -translate-x-1/2 top-0 z-0 pointer-events-none"
       >
         <defs>
@@ -313,72 +341,95 @@ function TrailBoard({ lessons, xp, computeLessonState, lessonTags, openLesson }:
           }}
         />
       </svg>
-      
-      {/* Lesson Nodes over the SVG */}
-      {lessons.map((lesson: any, idx: number) => {
-        const state = computeLessonState(lesson, idx);
-        const prevState = idx > 0 ? computeLessonState(lessons[idx - 1], idx - 1) : "completed";
-        const { x, y } = nodePositions[idx];
-        
-        return (
-          <motion.div
-            key={lesson.id}
-            whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
-            animate={state !== "locked" ? { y: [y - 10, y] } : {}}
-            transition={{
-              duration: 0.31,
-              type: "spring",
-            }}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
+
+      {/* Lock Icons centered between nodes */}
+      {lockPositions.map(({ x, y, key }) => (
+        <div
+          key={key}
+          className="absolute z-20 flex items-center justify-center"
+          style={{
+            left: x - 23, // icon is 48px, align center
+            top: y - 24,
+            width: 46,
+            height: 46,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            className="rounded-full border-2 border-[#EBC367] bg-white"
             style={{
-              left: x,
-              top: y,
-              zIndex: 2,
+              width: 44, height: 44,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
             }}
           >
-            {/* Node Circle Component */}
-            <div className="flex flex-col items-center">
+            <Lock size={28} color="#EBC367" />
+          </span>
+        </div>
+      ))}
+
+      {/* Nodes and Lesson Cards */}
+      {lessons.map((lesson, idx) => {
+        const state = computeLessonState(lesson, idx);
+        const { x, y, cardSide } = nodePositions[idx];
+        const cardX =
+          cardSide === "right"
+            ? rightCardX // slightly right of center
+            : leftCardX - cardWidth + 48; // to the left, align vertically
+        const cardAlign = cardSide === "right" ? "left" : "right";
+        // Tighten zIndex so card sits nicely next to node, no overlap
+        return (
+          <div key={lesson.id}>
+            {/* Node dot/circle */}
+            <motion.div
+              whileTap={{ scale: state !== "locked" ? 0.97 : 1.0 }}
+              animate={state !== "locked" ? { y: [y - 10, y] } : {}}
+              transition={{
+                duration: 0.31,
+                type: "spring",
+              }}
+              className="absolute"
+              style={{
+                left: x - 24,
+                top: y - 24,
+                zIndex: 11,
+              }}
+            >
               <NodeCircle
                 state={state}
                 sequence={lesson.sequence_no}
-                highlight={state === "unlocked" && prevState !== "unlocked"}
+                highlight={state === "unlocked"}
               />
-              
-              {/* Lesson Card */}
-              <div className="mt-14" style={{ width: "280px", maxWidth: "85vw" }}>
-                <LessonCard
-                  locked={state === "locked"}
-                  title={lesson.title}
-                  tagIcon={lessonTags[lesson.type]?.icon}
-                  tagLabel={lessonTags[lesson.type]?.label}
-                  xpReward={lesson.xp_reward}
-                  onClick={() => openLesson(lesson, idx)}
-                  remainingXp={lesson.unlock_xp - xp}
-                />
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+            {/* Lesson Card */}
+            <motion.div
+              className={`absolute`}
+              style={{
+                width: cardWidth,
+                left: cardSide === "right" ? rightCardX : leftCardX - cardWidth + 48,
+                top: y - 32,
+                zIndex: 10,
+                display: "flex",
+                justifyContent: cardAlign,
+                alignItems: "center",
+                pointerEvents: "auto",
+              }}
+            >
+              <LessonCard
+                locked={state === "locked"}
+                title={lesson.title}
+                tagIcon={lessonTags[lesson.type]?.icon}
+                tagLabel={lessonTags[lesson.type]?.label}
+                xpReward={lesson.xp_reward}
+                onClick={() => openLesson(lesson, idx)}
+                remainingXp={lesson.unlock_xp - xp}
+              />
+            </motion.div>
+          </div>
         );
       })}
     </div>
   );
-}
-
-/**
- * Get positions for nodes along the wavy path with improved spacing
- */
-function getTrailNodePos(idx: number, containerWidth: number) {
-  // Centered on column, wavy left-right offsets with wider spacing
-  const pathOffsets = [0, -0.18, 0.22, -0.13, 0.25, -0.22, 0.17]; 
-  const normOffset = pathOffsets[idx % pathOffsets.length];
-  
-  // Calculate x position with horizontal offset
-  const x = 0.5 * containerWidth + normOffset * (containerWidth * 0.34 - 14 * (idx % 2));
-  
-  // Increase vertical spacing between nodes significantly
-  const y = 120 + idx * 180;
-  
-  return { x, y };
 }
 
 export default QuestTrail;
