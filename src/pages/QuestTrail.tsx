@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
-import LessonModal from "@/components/quest-trail/LessonModal";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { CircleCheck, Lock, Circle } from "lucide-react";
@@ -299,13 +298,13 @@ const QuestTrail = () => {
     localStorage.setItem("lastLoginDate", today);
   }, []);
 
-  const computeLessonState = (lesson: any) => {
+  const computeLessonState = (lesson: any, index: number) => {
     if (lesson.completed) return "completed";
+    if (index === firstIncompleteIndex) return "unlocked";
     if (xp >= lesson.unlock_xp) return "unlocked";
     return "locked";
   };
 
-  // Complete lesson (mark as complete)
   const completeLesson = (lessonId: string) => {
     const idx = lessons.findIndex((l) => l.id === lessonId);
     if (idx === -1) return;
@@ -325,15 +324,15 @@ const QuestTrail = () => {
     localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
   };
 
-  // Show modal for non-locked lesson card only
   const openLesson = (lesson: any) => {
-    if (computeLessonState(lesson) !== "locked") {
+    if (computeLessonState(lesson, lessons.indexOf(lesson)) !== "locked") {
       setSelectedLesson(lesson);
       setShowLessonModal(true);
     }
   };
 
-  // Responsive: Render nothing if no lessons
+  const firstIncompleteIndex = lessons.findIndex(l => !l.completed);
+
   if (!lessons || lessons.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF8F3]">
@@ -408,15 +407,14 @@ const QuestTrail = () => {
         <h1 className="text-2xl font-poppins font-semibold mt-3 mb-7">Quest Trail</h1>
         <div className="trail-wrapper pb-4">
           {lessons.map((lesson, i) => {
-            const state = computeLessonState(lesson);
-            const prevState = i > 0 ? computeLessonState(lessons[i - 1]) : "completed";
+            const state = computeLessonState(lesson, i);
+            const prevState = i > 0 ? computeLessonState(lessons[i - 1], i - 1) : "completed";
             return (
               <div
                 key={lesson.id}
                 className="flex flex-col items-center relative w-full"
                 style={{ marginBottom: 80 }}
               >
-                {/* TrailNodeCircle with Tooltip */}
                 <TrailNodeCircle
                   state={state}
                   sequence={lesson.sequence_no}
@@ -427,7 +425,6 @@ const QuestTrail = () => {
                   onLeave={() => setHoveredIndex(null)}
                   onClick={() => openLesson(lesson)}
                 />
-                {/* TrailLessonCard */}
                 <TrailLessonCard
                   locked={state === "locked"}
                   title={lesson.title}
@@ -440,7 +437,6 @@ const QuestTrail = () => {
             );
           })}
         </div>
-        {/* Modal for lesson actions */}
         <TrailLessonModal
           open={showLessonModal}
           lesson={selectedLesson}
