@@ -99,6 +99,6 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-ct-paper text-foreground;
   }
 }
