@@ -1,1 +1,8 @@
+
 project_id = "gjwwzygpxigmhxugftse"
+
+[functions.generate-lesson-plan]
+verify_jwt = true
+
+[functions.ai-tutor-chat]
+verify_jwt = true

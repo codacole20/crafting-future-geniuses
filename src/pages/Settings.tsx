@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -33,12 +35,14 @@ const languageOptions = [
 ];
 
 const Settings = () => {
+  const { toast } = useToast();
   const [user, setUser] = useState({
+    id: "",
     email: "student@example.com",
     name: "Alex Student",
     avatar: "",
     language: "en",
-    passions: JSON.parse(localStorage.getItem("userPassions") || "[]"),
+    passions: [],
     notifications: {
       lessons: true,
       chat: true,
@@ -50,6 +54,49 @@ const Settings = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData.user) {
+          console.log("No authenticated user found");
+          return;
+        }
+
+        const { data: userData, error } = await supabase
+          .from('Crafting Tomorrow Users')
+          .select('*')
+          .eq('email', authData.user.email)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user data:", error);
+          return;
+        }
+
+        setUser({
+          id: userData.id.toString(),
+          email: userData.email,
+          name: userData.display_name || authData.user.email.split('@')[0],
+          avatar: userData.avatar_url || "",
+          language: userData.lang || "en",
+          passions: userData.passions || [],
+          notifications: {
+            lessons: true,
+            chat: true,
+            streak: true,
+          },
+          instagramToken: "",
+        });
+      } catch (err) {
+        console.error("Error in loadUserData:", err);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   const handlePassionToggle = (id: string) => {
     if (user.passions.includes(id)) {
@@ -72,27 +119,86 @@ const Settings = () => {
     });
   };
 
+  const generateLessonPlan = async (passions: string[]) => {
+    if (!user.id || passions.length === 0) return;
+    
+    setIsGeneratingPlan(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        throw new Error("No authenticated user");
+      }
+      
+      const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
+        body: {
+          passions: passions.map(id => passionOptions.find(p => p.id === id)?.label || id),
+          userId: user.id
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Quest path updated!",
+        description: "Your personalized learning journey has been created."
+      });
+      
+    } catch (error) {
+      console.error("Error generating lesson plan:", error);
+      toast({
+        title: "Couldn't refresh lessons right now",
+        description: "Using existing path.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   const handleUpdate = async () => {
     setIsUpdating(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        throw new Error("No authenticated user");
+      }
       
-      localStorage.setItem("userPassions", JSON.stringify(user.passions));
+      const { error: updateError } = await supabase
+        .from('Crafting Tomorrow Users')
+        .update({
+          display_name: user.name,
+          lang: user.language,
+          passions: user.passions
+        })
+        .eq('email', user.email);
+        
+      if (updateError) throw updateError;
+      
+      await generateLessonPlan(user.passions);
       
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
-      
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast({
+        title: "Update failed",
+        description: "Could not save your settings.",
+        variant: "destructive"
+      });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("hasCompletedOnboarding");
-    window.location.href = "/onboarding";
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem("hasCompletedOnboarding");
+      window.location.href = "/onboarding";
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -143,6 +249,7 @@ const Settings = () => {
                 type="email"
                 value={user.email}
                 onChange={e => setUser({...user, email: e.target.value})}
+                disabled
               />
             </div>
           </div>
@@ -305,11 +412,13 @@ const Settings = () => {
             )}
             <Button 
               onClick={handleUpdate}
-              disabled={isUpdating} 
+              disabled={isUpdating || isGeneratingPlan} 
               className="bg-ct-teal hover:bg-ct-teal/90"
             >
               <Save size={16} className="mr-2" />
-              {isUpdating ? "Saving..." : "Save Settings"}
+              {isUpdating || isGeneratingPlan ? 
+                (isGeneratingPlan ? "Generating Quest..." : "Saving...") : 
+                "Save Settings"}
             </Button>
           </div>
         </div>

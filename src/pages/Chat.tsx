@@ -1,9 +1,11 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -46,6 +48,7 @@ const mockStudentThreads = [
 ];
 
 const Chat = () => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("chatbot");
   const [chatMessages, setChatMessages] = useState<Message[]>([
     {
@@ -57,6 +60,9 @@ const Chat = () => {
   ]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [remainingRequests, setRemainingRequests] = useState(5);
   
   // Mock thread responses
   const [threads, setThreads] = useState(mockStudentThreads);
@@ -64,8 +70,37 @@ const Chat = () => {
   const [newThreadContent, setNewThreadContent] = useState("");
   const [showNewThreadForm, setShowNewThreadForm] = useState(false);
 
+  // Get current user on component mount
+  useEffect(() => {
+    const getUserData = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        // Get user profile from database
+        const { data: userData, error } = await supabase
+          .from('Crafting Tomorrow Users')
+          .select('*')
+          .eq('email', data.user.email)
+          .single();
+          
+        if (!error && userData) {
+          setCurrentUser(userData);
+        }
+      }
+    };
+
+    getUserData();
+  }, []);
+
   const sendMessage = async () => {
-    if (!userInput.trim()) return;
+    if (!userInput.trim() || loading) return;
+    
+    if (rateLimited) {
+      toast({
+        title: "Slow down a bit",
+        description: "You're sending messages too quickly. Please wait a moment.",
+      });
+      return;
+    }
     
     // Add user message to chat
     const userMessage: Message = {
@@ -80,16 +115,43 @@ const Chat = () => {
     setLoading(true);
     
     try {
-      // Simulate AI response (in a real app, this would call the OpenAI API)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!currentUser) {
+        throw new Error("Please sign in to use the AI Tutor");
+      }
+
+      // Call the edge function for AI response
+      const { data, error } = await supabase.functions.invoke('ai-tutor-chat', {
+        body: {
+          message: userInput,
+          userId: currentUser.id
+        }
+      });
       
-      // Mock AI response with recommended lessons
+      if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || "Failed to get AI response");
+      }
+      
+      // Update remaining requests count
+      if (data.remainingRequests !== undefined) {
+        setRemainingRequests(data.remainingRequests);
+        // Set rate limited flag if approaching limit
+        setRateLimited(data.remainingRequests <= 0);
+        
+        // Reset rate limited flag after a minute
+        if (data.remainingRequests <= 0) {
+          setTimeout(() => setRateLimited(false), 60 * 1000);
+        }
+      }
+      
+      // Add AI response to chat
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: getAIMockResponse(userInput),
+        content: data.message,
         sender: "ai",
         timestamp: new Date(),
-        recommendedLessons: ["Market Research Basics", "AI Tools for Entrepreneurs"],
+        recommendedLessons: [], // Can be populated with actual lesson data if needed
       };
       
       setChatMessages(prev => [...prev, aiResponse]);
@@ -99,28 +161,21 @@ const Chat = () => {
       // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: "Sorry, I encountered an error. Please try again later.",
+        content: error.message || "We're retrying—please wait a moment.",
         sender: "ai",
         timestamp: new Date(),
       };
       
       setChatMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Oops!",
+        description: error.message || "We're having trouble connecting to the AI. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const getAIMockResponse = (input: string): string => {
-    const responses = [
-      "That's a great question about entrepreneurship! Start by validating your idea with potential customers before building anything. Would you like me to recommend some lessons on market research?",
-      "When using AI tools for your startup, make sure to focus on solving real user problems first. The technology should enhance your solution, not be the solution itself.",
-      "For beginners in entrepreneurship, I recommend starting with a small project that you can launch quickly. This helps you learn the process without getting overwhelmed.",
-      "Building a sustainable business requires understanding your unit economics early. Make sure your cost to acquire a customer is less than their lifetime value.",
-      "When creating your MVP (Minimum Viable Product), focus only on the core features that solve your users' main pain point. Everything else can wait for later versions."
-    ];
-    
-    // Return a random response
-    return responses[Math.floor(Math.random() * responses.length)];
   };
 
   const handleThreadSubmit = () => {
@@ -184,6 +239,21 @@ const Chat = () => {
                           : "bg-gray-100"}
                       `}
                     >
+                      {message.sender === "ai" && currentUser?.avatar_url && (
+                        <div className="flex items-center mb-2">
+                          <div className="w-8 h-8 rounded-full overflow-hidden mr-2 bg-ct-sky flex-shrink-0">
+                            <img 
+                              src={currentUser.avatar_url} 
+                              alt="AI" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg';
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium">MentorBot</span>
+                        </div>
+                      )}
                       <p className="mb-1">{message.content}</p>
                       <p className="text-xs opacity-70 text-right">
                         {formatDate(message.timestamp)}
@@ -218,19 +288,28 @@ const Chat = () => {
               </div>
               
               <div className="p-4 border-t">
+                {rateLimited ? (
+                  <div className="text-amber-600 text-sm mb-2 p-2 bg-amber-50 rounded-md">
+                    You've reached the message limit. Please wait a minute before sending more messages.
+                  </div>
+                ) : remainingRequests <= 1 && (
+                  <div className="text-amber-600 text-sm mb-2">
+                    {remainingRequests === 1 ? "1 more message" : "0 messages"} left before cooldown.
+                  </div>
+                )}
                 <div className="flex items-center">
                   <input
                     type="text"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                    placeholder="Ask your AI mentor anything..."
+                    placeholder={currentUser ? "Ask your AI mentor anything..." : "Please sign in to use the AI Tutor"}
                     className="flex-1 border rounded-pill py-2 px-4 focus:outline-none focus:ring-1 focus:ring-ct-teal"
-                    disabled={loading}
+                    disabled={loading || rateLimited || !currentUser}
                   />
                   <Button 
                     onClick={sendMessage}
-                    disabled={loading || !userInput.trim()}
+                    disabled={loading || !userInput.trim() || rateLimited || !currentUser}
                     className="ml-2 bg-ct-teal hover:bg-ct-teal/90 rounded-full p-2 h-10 w-10"
                   >
                     <Send size={18} />

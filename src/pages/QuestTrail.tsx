@@ -7,55 +7,20 @@ import LessonModal from "@/components/quest-trail/LessonModal";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { CircleCheck, Lock, Circle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock data
-const mockLessons = [
-  {
-    id: "lesson1",
-    sequence_no: 1,
-    title: "Introduction to AI & Entrepreneurship",
-    type: "video",
-    unlock_xp: 0,
-    xp_reward: 10,
-    completed: false,
-  },
-  {
-    id: "lesson2",
-    sequence_no: 2,
-    title: "Finding Your Niche",
-    type: "quiz",
-    unlock_xp: 10,
-    xp_reward: 15,
-    completed: false,
-  },
-  {
-    id: "lesson3",
-    sequence_no: 3,
-    title: "Market Research Basics",
-    type: "scenario",
-    unlock_xp: 25,
-    xp_reward: 20,
-    completed: false,
-  },
-  {
-    id: "lesson4",
-    sequence_no: 4,
-    title: "AI Tools for Entrepreneurs",
-    type: "video",
-    unlock_xp: 45,
-    xp_reward: 15,
-    completed: false,
-  },
-  {
-    id: "lesson5",
-    sequence_no: 5,
-    title: "Creating Your MVP",
-    type: "scenario",
-    unlock_xp: 60,
-    xp_reward: 25,
-    completed: false,
-  },
-];
+// Lesson type definition
+interface Lesson {
+  id: string;
+  sequence_no: number;
+  title: string;
+  type: string;
+  unlock_xp: number;
+  xp_reward: number;
+  completed: boolean;
+  description?: string;
+  user_id?: string;
+}
 
 const lessonTags = {
   video: { icon: "📺", label: "Watch" },
@@ -259,47 +224,183 @@ const QuestTrail = () => {
   const { toast } = useToast();
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [lessons, setLessons] = useState(mockLessons);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [streakGlow, setStreakGlow] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // For tooltips (hover/long-press); stores the index of node hovered
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Load XP/streak/lessons from localStorage
+  // Load user data and lessons
   useEffect(() => {
-    const savedXp = localStorage.getItem("userXp");
-    const savedStreak = localStorage.getItem("userStreak");
-    const savedLessons = localStorage.getItem("userLessons");
-    if (savedXp) setXp(parseInt(savedXp));
-    if (savedStreak) setStreak(parseInt(savedStreak));
-    if (savedLessons) setLessons(JSON.parse(savedLessons));
-    const today = new Date().toDateString();
-    const lastLoginDate = localStorage.getItem("lastLoginDate");
-    if (lastLoginDate && lastLoginDate !== today) {
-      const lastLogin = new Date(lastLoginDate);
-      const diffDays = Math.floor(
-        (new Date().getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (diffDays === 1) {
-        const newStreak = (parseInt(savedStreak || "0") || 0) + 1;
-        setStreak(newStreak);
-        localStorage.setItem("userStreak", newStreak.toString());
-        setStreakGlow(true);
-        setTimeout(() => setStreakGlow(false), 500);
+    const loadUserData = async () => {
+      setIsLoading(true);
+      try {
+        // Get current authenticated user
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData.user) {
+          console.log("No authenticated user found");
+          setIsLoading(false);
+          return;
+        }
+
+        // Get user profile data
+        const { data: userData, error } = await supabase
+          .from('Crafting Tomorrow Users')
+          .select('*')
+          .eq('email', authData.user.email)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user data:", error);
+          setIsLoading(false);
+          return;
+        }
+
+        setCurrentUser(userData);
+        
+        // Load XP/streak from localStorage
+        const savedXp = localStorage.getItem("userXp");
+        const savedStreak = localStorage.getItem("userStreak");
+        if (savedXp) setXp(parseInt(savedXp));
+        if (savedStreak) setStreak(parseInt(savedStreak));
+        
+        // Check streak
+        const today = new Date().toDateString();
+        const lastLoginDate = localStorage.getItem("lastLoginDate");
+        if (lastLoginDate && lastLoginDate !== today) {
+          const lastLogin = new Date(lastLoginDate);
+          const currentDate = new Date();
+          const diffDays = Math.floor((currentDate.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 1) {
+            // Consecutive day, increment streak
+            const newStreak = (parseInt(savedStreak || "0") || 0) + 1;
+            setStreak(newStreak);
+            localStorage.setItem("userStreak", newStreak.toString());
+            setStreakGlow(true);
+            setTimeout(() => setStreakGlow(false), 500);
+          } else if (diffDays > 1) {
+            // Streak broken
+            setStreak(1);
+            localStorage.setItem("userStreak", "1");
+          }
+        }
+        
+        // Load lessons for this user
+        await loadLessons(userData.id);
+        
+        // Update last login
+        localStorage.setItem("lastLoginDate", today);
+      } catch (error) {
+        console.error("Error loading user data:", error);
         toast({
-          title: "Quest mastered! 🔥 Streak +1.",
-          description: "",
+          title: "Error",
+          description: "Could not load your quest data",
+          variant: "destructive"
         });
-      } else if (diffDays > 1) {
-        setStreak(1);
-        localStorage.setItem("userStreak", "1");
+      } finally {
+        setIsLoading(false);
       }
-    }
-    localStorage.setItem("lastLoginDate", today);
+    };
+    
+    loadUserData();
   }, []);
+
+  // Load lessons for current user
+  const loadLessons = async (userId: string | number) => {
+    try {
+      let { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('user_id', userId)
+        .order('sequence_no', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setLessons(data);
+      } else {
+        // No lessons found, trigger generation if we have user passions
+        if (currentUser?.passions?.length > 0) {
+          await generateInitialLessons(userId, currentUser.passions);
+        } else {
+          // Use fallback lessons
+          setLessons([
+            {
+              id: "lesson1",
+              sequence_no: 1,
+              title: "Introduction to AI & Entrepreneurship",
+              type: "video",
+              unlock_xp: 0,
+              xp_reward: 10,
+              completed: false,
+              user_id: userId.toString()
+            },
+            {
+              id: "lesson2",
+              sequence_no: 2,
+              title: "Finding Your Niche",
+              type: "quiz",
+              unlock_xp: 10,
+              xp_reward: 15,
+              completed: false,
+              user_id: userId.toString()
+            },
+            {
+              id: "lesson3",
+              sequence_no: 3,
+              title: "Market Research Basics",
+              type: "scenario",
+              unlock_xp: 25,
+              xp_reward: 20,
+              completed: false,
+              user_id: userId.toString()
+            },
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading lessons:", error);
+      toast({
+        title: "Error",
+        description: "Could not load your quests",
+      });
+    }
+  };
+
+  // Generate initial lessons if none exist
+  const generateInitialLessons = async (userId: string | number, passions: string[]) => {
+    try {
+      toast({
+        title: "Creating your quest path...",
+        description: "This may take a moment"
+      });
+      
+      const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
+        body: {
+          userId: userId,
+          passions: passions
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.lessons) {
+        setLessons(data.lessons);
+      }
+    } catch (error) {
+      console.error("Error generating initial lessons:", error);
+      toast({
+        title: "Could not generate custom quests",
+        description: "Using default quests instead"
+      });
+    }
+  };
 
   const computeLessonState = (lesson: any, index: number) => {
     if (lesson.completed) return "completed";
@@ -320,6 +421,16 @@ const QuestTrail = () => {
       const updatedLessons = [...lessons];
       updatedLessons[idx].completed = true;
       
+      // Update lesson in database
+      if (currentUser) {
+        const { error } = await supabase
+          .from('lessons')
+          .update({ completed: true })
+          .eq('id', lessonId);
+          
+        if (error) throw error;
+      }
+      
       // Update local state
       setLessons(updatedLessons);
       setXp(newXp);
@@ -332,7 +443,6 @@ const QuestTrail = () => {
       
       // Update localStorage
       localStorage.setItem("userXp", newXp.toString());
-      localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
       
       // Close modal
       setShowLessonModal(false);
@@ -355,6 +465,21 @@ const QuestTrail = () => {
   };
 
   const firstIncompleteIndex = lessons.findIndex(l => !l.completed);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F3]">
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="w-3 h-3 rounded-full bg-ct-teal mx-1 animate-bounce" style={{ animationDelay: "0ms" }}></div>
+            <div className="w-3 h-3 rounded-full bg-ct-teal mx-1 animate-bounce" style={{ animationDelay: "150ms" }}></div>
+            <div className="w-3 h-3 rounded-full bg-ct-teal mx-1 animate-bounce" style={{ animationDelay: "300ms" }}></div>
+          </div>
+          <span className="text-gray-800 font-poppins font-semibold text-lg">Loading your quest trail...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!lessons || lessons.length === 0) {
     return (
@@ -451,8 +576,8 @@ const QuestTrail = () => {
                 <TrailLessonCard
                   locked={state === "locked"}
                   title={lesson.title}
-                  tagIcon={lessonTags[lesson.type]?.icon}
-                  tagLabel={lessonTags[lesson.type]?.label}
+                  tagIcon={lessonTags[lesson.type as keyof typeof lessonTags]?.icon || "📄"}
+                  tagLabel={lessonTags[lesson.type as keyof typeof lessonTags]?.label || "Read"}
                   xpReward={lesson.xp_reward}
                   onClick={() => openLesson(lesson)}
                 />
@@ -460,7 +585,8 @@ const QuestTrail = () => {
             );
           })}
         </div>
-        <LessonModal
+        
+        <TrailLessonModal
           open={showLessonModal}
           lesson={selectedLesson}
           onClose={() => setShowLessonModal(false)}
