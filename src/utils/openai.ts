@@ -17,37 +17,17 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
   // Always store in localStorage for immediate access
   localStorage.setItem("userPassions", JSON.stringify(passions));
   
+  // Don't try to save to Supabase if the table doesn't exist
+  // We'll just rely on localStorage for now
   try {
-    // Store passions as a JSON string in localStorage for all cases
+    // For authenticated users, store in their profile
     if (userId) {
-      // For authenticated users, store in their profile
-      const { error } = await supabase
-        .from('user_passions')
-        .upsert({ 
-          user_id: userId,
-          passions,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'user_id' 
-        });
-        
-      if (error) throw error;
+      localStorage.setItem("user_" + userId + "_passions", JSON.stringify(passions));
     } else {
       // For guest users, use session ID
       const guestId = localStorage.getItem("guestId") || crypto.randomUUID();
       localStorage.setItem("guestId", guestId);
-      
-      const { error } = await supabase
-        .from('user_passions')
-        .upsert({ 
-          guest_id: guestId,
-          passions,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'guest_id' 
-        });
-        
-      if (error) throw error;
+      localStorage.setItem("guest_" + guestId + "_passions", JSON.stringify(passions));
     }
   } catch (error) {
     console.error("Error saving passions:", error);
@@ -66,32 +46,22 @@ export const getUserPassions = async (userId?: string | null): Promise<string[]>
       return JSON.parse(localPassions);
     }
     
-    // If authenticated, try to get from database
+    // If authenticated, try to get from specific user localStorage
     if (userId) {
-      const { data, error } = await supabase
-        .from('user_passions')
-        .select('passions')
-        .eq('user_id', userId)
-        .single();
-      
-      if (data?.passions) {
+      const userPassions = localStorage.getItem("user_" + userId + "_passions");
+      if (userPassions) {
         // Update localStorage for faster access next time
-        localStorage.setItem("userPassions", JSON.stringify(data.passions));
-        return data.passions;
+        localStorage.setItem("userPassions", userPassions);
+        return JSON.parse(userPassions);
       }
     } else {
       // For guest users, use guest ID
       const guestId = localStorage.getItem("guestId");
       if (guestId) {
-        const { data, error } = await supabase
-          .from('user_passions')
-          .select('passions')
-          .eq('guest_id', guestId)
-          .single();
-        
-        if (data?.passions) {
-          localStorage.setItem("userPassions", JSON.stringify(data.passions));
-          return data.passions;
+        const guestPassions = localStorage.getItem("guest_" + guestId + "_passions");
+        if (guestPassions) {
+          localStorage.setItem("userPassions", guestPassions);
+          return JSON.parse(guestPassions);
         }
       }
     }

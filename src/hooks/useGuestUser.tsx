@@ -4,13 +4,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserPassions, saveUserPassions } from '@/utils/openai';
 
-interface GuestUser {
+export interface GuestUser {
   id: string;
   isGuest: true;
+  email?: string;
+  displayName?: string;
   passions: string[];
 }
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   isGuest: false;
   email: string;
@@ -18,7 +20,7 @@ interface AuthUser {
   passions: string[];
 }
 
-type User = GuestUser | AuthUser | null;
+export type User = GuestUser | AuthUser | null;
 
 interface GuestUserContextType {
   user: User;
@@ -61,6 +63,8 @@ export function GuestUserProvider({ children }: { children: ReactNode }) {
         setUser({
           id: guestId,
           isGuest: true,
+          email: 'guest@example.com',
+          displayName: 'Guest User',
           passions
         });
       }
@@ -90,6 +94,8 @@ export function GuestUserProvider({ children }: { children: ReactNode }) {
         setUser({
           id: guestId,
           isGuest: true,
+          email: 'guest@example.com',
+          displayName: 'Guest User',
           passions
         });
       }
