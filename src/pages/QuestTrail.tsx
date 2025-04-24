@@ -9,6 +9,18 @@ import { CircleCheck, Lock, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Define a type for the database user
+interface DbUser {
+  id: number;
+  email: string;
+  display_name: string;
+  avatar_url: string;
+  lang: string;
+  roles: "student" | "teacher" | "parent" | "admin";
+  created_at: string;
+  passions?: string[]; // Make passions optional
+}
+
 // Lesson type definition
 interface Lesson {
   id: string;
@@ -244,7 +256,7 @@ const QuestTrail = () => {
   const [streakGlow, setStreakGlow] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
   const isMounted = useRef(true);
 
   // For tooltips (hover/long-press); stores the index of node hovered
@@ -285,7 +297,7 @@ const QuestTrail = () => {
 
         if (!isMounted.current) return;
         
-        // Extract passions with type safety
+        // Extract passions with type safety - ensure it's an array even if undefined
         const userPassions = (userData.passions || []) as string[];
         
         // Set current user with correctly typed passions
@@ -340,7 +352,7 @@ const QuestTrail = () => {
     };
     
     loadUserData();
-  }, []);
+  }, [toast]);
 
   // Load lessons for current user
   const loadLessons = async (userId: string | number) => {
@@ -473,14 +485,14 @@ const QuestTrail = () => {
     }
   };
 
-  // Fixed version of computeLessonState to avoid excessive type recursion
-  const computeLessonState = (lesson: Lesson, index: number): "completed" | "unlocked" | "locked" => {
+  // Simplified version of computeLessonState to avoid excessive type recursion
+  const computeLessonState = (lesson: Lesson): "completed" | "unlocked" | "locked" => {
     if (lesson.completed) return "completed";
     
-    // Find the first incomplete lesson index safely
+    // Find the first incomplete lesson
     const firstIncompleteIdx = lessons.findIndex(l => !l.completed);
     
-    if (index === firstIncompleteIdx) return "unlocked";
+    if (firstIncompleteIdx === lessons.indexOf(lesson)) return "unlocked";
     if (xp >= lesson.unlock_xp) return "unlocked";
     return "locked";
   };
@@ -534,7 +546,7 @@ const QuestTrail = () => {
   };
 
   const openLesson = (lesson: any) => {
-    if (computeLessonState(lesson, lessons.indexOf(lesson)) !== "locked") {
+    if (computeLessonState(lesson) !== "locked") {
       setSelectedLesson(lesson);
       setShowLessonModal(true);
     }
@@ -636,8 +648,8 @@ const QuestTrail = () => {
         <h1 className="text-2xl font-poppins font-semibold mt-3 mb-7">Quest Trail</h1>
         <div className="trail-wrapper pb-4">
           {lessons.map((lesson, i) => {
-            const state = computeLessonState(lesson, i);
-            const prevState = i > 0 ? computeLessonState(lessons[i - 1], i - 1) : "completed";
+            const state = computeLessonState(lesson);
+            const prevState = i > 0 ? computeLessonState(lessons[i - 1]) : "completed";
             return (
               <div
                 key={lesson.id}

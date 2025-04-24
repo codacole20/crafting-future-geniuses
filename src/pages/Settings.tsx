@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Avatar } from "@/components/Avatar";
+import Avatar from "@/components/Avatar";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -36,9 +35,35 @@ const languageOptions = [
   { value: "ja", label: "Japanese" },
 ];
 
+interface UserWithPassions {
+  id: string;
+  email: string;
+  name: string;
+  avatar: string;
+  language: string;
+  passions: string[];
+  notifications: {
+    lessons: boolean;
+    chat: boolean;
+    streak: boolean;
+  };
+  instagramToken: string;
+}
+
+interface DbUser {
+  id: number;
+  email: string;
+  display_name: string;
+  avatar_url: string;
+  lang: string;
+  roles: "student" | "teacher" | "parent" | "admin";
+  created_at: string;
+  passions?: string[];
+}
+
 const Settings = () => {
   const { toast } = useToast();
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<UserWithPassions>({
     id: "",
     email: "student@example.com",
     name: "Alex Student",
@@ -78,7 +103,6 @@ const Settings = () => {
           return;
         }
 
-        // Extract passions from userData (fallback to empty array if undefined)
         const userPassions = (userData.passions || []) as string[];
 
         setUser({
@@ -174,26 +198,40 @@ const Settings = () => {
         throw new Error("No authenticated user");
       }
       
-      const userId = parseInt(user.id);
+      let userId: number;
       
-      // Use upsert instead of update to handle first-time users
+      try {
+        userId = parseInt(user.id);
+        if (isNaN(userId)) {
+          console.log("Using auth user ID instead of parsed ID");
+          userId = undefined as unknown as number;
+        }
+      } catch (e) {
+        console.error("Error parsing user ID:", e);
+        userId = undefined as unknown as number;
+      }
+      
+      const upsertData: Partial<DbUser> = {
+        display_name: user.name,
+        lang: user.language,
+        passions: user.passions,
+        email: user.email,
+        roles: "student" // Default role
+      };
+      
+      if (!isNaN(userId)) {
+        upsertData.id = userId;
+      }
+      
       const { data: updatedUser, error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
-        .upsert({
-          id: isNaN(userId) ? undefined : userId,
-          display_name: user.name,
-          lang: user.language,
-          passions: user.passions,
-          email: user.email,
-          roles: "student" // Default role
-        })
+        .upsert(upsertData)
         .select('*')
         .single();
         
       if (updateError) throw updateError;
       
       if (updatedUser) {
-        // Get passions from updated user record, fallback to empty array
         const updatedPassions = (updatedUser.passions || []) as string[];
         
         setUser({
