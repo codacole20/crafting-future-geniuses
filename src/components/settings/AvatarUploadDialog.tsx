@@ -55,11 +55,19 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
         .getPublicUrl(fileName);
 
       // Update user's avatar URL in the Crafting Tomorrow Users table
-      // Use the raw user ID string since we're not dealing with numeric IDs anymore
+      // Fetch the numeric ID from the database to ensure correct type
+      const { data: userData, error: fetchError } = await supabase
+        .from('Crafting Tomorrow Users')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+
+      if (fetchError || !userData) throw new Error("Could not find user record");
+
       const { error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
         .update({ avatar_url: publicUrl })
-        .eq('id', user.id);
+        .eq('id', userData.id);
 
       if (updateError) throw updateError;
 
