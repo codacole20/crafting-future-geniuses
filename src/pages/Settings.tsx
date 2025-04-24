@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useGuestUser } from "@/hooks/useGuestUser";
+import { buildPersonalLearningPath } from "@/utils/openai";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -33,12 +38,15 @@ const languageOptions = [
 ];
 
 const Settings = () => {
-  const [user, setUser] = useState({
+  const { toast } = useToast();
+  const { user, updateUserPassions } = useGuestUser();
+  
+  const [localUser, setLocalUser] = useState({
     email: "student@example.com",
     name: "Alex Student",
     avatar: "",
     language: "en",
-    passions: JSON.parse(localStorage.getItem("userPassions") || "[]"),
+    passions: [] as string[],
     notifications: {
       lessons: true,
       chat: true,
@@ -50,24 +58,46 @@ const Settings = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [isGeneratingPath, setIsGeneratingPath] = useState(false);
 
-  const handlePassionToggle = (id: string) => {
-    if (user.passions.includes(id)) {
-      setUser({
-        ...user,
-        passions: user.passions.filter(passionId => passionId !== id),
-      });
-    } else {
-      setUser({
-        ...user,
-        passions: [...user.passions, id],
-      });
+  // Initialize from authenticated user or guest
+  useEffect(() => {
+    if (user) {
+      setLocalUser(prev => ({
+        ...prev,
+        email: user.isGuest ? 'guest@example.com' : user.email,
+        name: user.isGuest ? 'Guest User' : (user.displayName || user.email),
+        passions: user.passions || []
+      }));
     }
+  }, [user]);
+
+  const handlePassionToggle = async (id: string) => {
+    let newPassions;
+    
+    if (localUser.passions.includes(id)) {
+      newPassions = localUser.passions.filter(passionId => passionId !== id);
+    } else {
+      // Limit to 6 passions
+      if (localUser.passions.length >= 6) {
+        toast({
+          title: "Maximum 6 passions allowed",
+          description: "Please remove one before adding another."
+        });
+        return;
+      }
+      newPassions = [...localUser.passions, id];
+    }
+    
+    setLocalUser({
+      ...localUser,
+      passions: newPassions,
+    });
   };
 
   const handleAvatarUpdate = (url: string) => {
-    setUser({
-      ...user,
+    setLocalUser({
+      ...localUser,
       avatar: url
     });
   };
@@ -76,21 +106,37 @@ const Settings = () => {
     setIsUpdating(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update passions through our context
+      await updateUserPassions(localUser.passions);
       
-      localStorage.setItem("userPassions", JSON.stringify(user.passions));
+      // Generate a new learning path based on updated passions
+      setIsGeneratingPath(true);
+      await buildPersonalLearningPath(localUser.passions, user?.isGuest ? null : user?.id);
       
+      // Show success message
       setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
+      toast({
+        title: "Your new path is ready—let's dive in!",
+        description: "Settings updated successfully."
+      });
       
+      setTimeout(() => setUpdateSuccess(false), 3000);
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast({
+        title: "Error updating settings",
+        description: "Please try again."
+      });
     } finally {
       setIsUpdating(false);
+      setIsGeneratingPath(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (!user?.isGuest) {
+      await supabase.auth.signOut();
+    }
     localStorage.removeItem("hasCompletedOnboarding");
     window.location.href = "/onboarding";
   };
@@ -105,9 +151,9 @@ const Settings = () => {
           
           <div className="flex items-center mb-6">
             <div className="w-16 h-16 bg-ct-sky rounded-full flex items-center justify-center mr-4 overflow-hidden">
-              {user.avatar ? (
+              {localUser.avatar ? (
                 <img 
-                  src={user.avatar} 
+                  src={localUser.avatar} 
                   alt="User avatar"
                   className="w-full h-full object-cover" 
                 />
@@ -131,9 +177,13 @@ const Settings = () => {
               <Label htmlFor="name">Name</Label>
               <Input 
                 id="name" 
-                value={user.name}
-                onChange={e => setUser({...user, name: e.target.value})}
+                value={localUser.name}
+                onChange={e => setLocalUser({...localUser, name: e.target.value})}
+                disabled={user?.isGuest}
               />
+              {user?.isGuest && (
+                <p className="text-xs text-gray-500">Sign in to update your name</p>
+              )}
             </div>
             
             <div className="grid gap-2">
@@ -141,9 +191,13 @@ const Settings = () => {
               <Input 
                 id="email" 
                 type="email"
-                value={user.email}
-                onChange={e => setUser({...user, email: e.target.value})}
+                value={localUser.email}
+                onChange={e => setLocalUser({...localUser, email: e.target.value})}
+                disabled={true}
               />
+              {user?.isGuest && (
+                <p className="text-xs text-gray-500">Sign in to update your email</p>
+              )}
             </div>
           </div>
         </div>
@@ -160,14 +214,14 @@ const Settings = () => {
                 key={passion.id}
                 className={`
                   p-3 rounded-md border flex items-center cursor-pointer
-                  ${user.passions.includes(passion.id) 
+                  ${localUser.passions.includes(passion.id) 
                     ? 'border-ct-teal bg-ct-teal/10' 
                     : 'border-gray-200 hover:bg-gray-50'}
                 `}
                 onClick={() => handlePassionToggle(passion.id)}
               >
                 <Checkbox 
-                  checked={user.passions.includes(passion.id)}
+                  checked={localUser.passions.includes(passion.id)}
                   onCheckedChange={() => handlePassionToggle(passion.id)}
                   className="mr-2"
                   id={`passion-${passion.id}`}
@@ -181,6 +235,9 @@ const Settings = () => {
               </div>
             ))}
           </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Maximum of 6 passions allowed. {localUser.passions.length}/6 selected.
+          </p>
         </div>
         
         <div className="p-5 border-b">
@@ -190,8 +247,8 @@ const Settings = () => {
             <div className="grid gap-2">
               <Label htmlFor="language">Language</Label>
               <Select 
-                value={user.language}
-                onValueChange={value => setUser({...user, language: value})}
+                value={localUser.language}
+                onValueChange={value => setLocalUser({...localUser, language: value})}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select Language" />
@@ -216,11 +273,11 @@ const Settings = () => {
                   </Label>
                   <Switch
                     id="notify-lessons"
-                    checked={user.notifications.lessons}
+                    checked={localUser.notifications.lessons}
                     onCheckedChange={checked => 
-                      setUser({
-                        ...user, 
-                        notifications: {...user.notifications, lessons: checked}
+                      setLocalUser({
+                        ...localUser, 
+                        notifications: {...localUser.notifications, lessons: checked}
                       })
                     }
                   />
@@ -232,11 +289,11 @@ const Settings = () => {
                   </Label>
                   <Switch
                     id="notify-chat"
-                    checked={user.notifications.chat}
+                    checked={localUser.notifications.chat}
                     onCheckedChange={checked => 
-                      setUser({
-                        ...user, 
-                        notifications: {...user.notifications, chat: checked}
+                      setLocalUser({
+                        ...localUser, 
+                        notifications: {...localUser.notifications, chat: checked}
                       })
                     }
                   />
@@ -248,11 +305,11 @@ const Settings = () => {
                   </Label>
                   <Switch
                     id="notify-streak"
-                    checked={user.notifications.streak}
+                    checked={localUser.notifications.streak}
                     onCheckedChange={checked => 
-                      setUser({
-                        ...user, 
-                        notifications: {...user.notifications, streak: checked}
+                      setLocalUser({
+                        ...localUser, 
+                        notifications: {...localUser.notifications, streak: checked}
                       })
                     }
                   />
@@ -270,13 +327,15 @@ const Settings = () => {
               <Label htmlFor="instagram-token">Instagram Token</Label>
               <Input 
                 id="instagram-token" 
-                value={user.instagramToken}
-                onChange={e => setUser({...user, instagramToken: e.target.value})}
+                value={localUser.instagramToken}
+                onChange={e => setLocalUser({...localUser, instagramToken: e.target.value})}
                 type="password"
                 placeholder="Enter your Instagram API token"
+                disabled={user?.isGuest}
               />
               <p className="text-xs text-gray-500">
                 Required to track metrics for your projects
+                {user?.isGuest && " (Sign in to enable)"}
               </p>
             </div>
           </div>
@@ -289,7 +348,7 @@ const Settings = () => {
             className="border-red-300 text-red-500 hover:bg-red-50"
           >
             <LogOut size={16} className="mr-2" />
-            Logout
+            {user?.isGuest ? "Go to Onboarding" : "Logout"}
           </Button>
           
           <div className="flex items-center">
@@ -305,11 +364,11 @@ const Settings = () => {
             )}
             <Button 
               onClick={handleUpdate}
-              disabled={isUpdating} 
+              disabled={isUpdating || isGeneratingPath} 
               className="bg-ct-teal hover:bg-ct-teal/90"
             >
               <Save size={16} className="mr-2" />
-              {isUpdating ? "Saving..." : "Save Settings"}
+              {isUpdating ? "Saving..." : isGeneratingPath ? "Generating Path..." : "Save Settings"}
             </Button>
           </div>
         </div>

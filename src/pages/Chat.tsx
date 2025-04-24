@@ -1,9 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { useGuestUser } from "@/hooks/useGuestUser";
+import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from "uuid";
 
 interface Message {
   id: string;
@@ -46,6 +50,8 @@ const mockStudentThreads = [
 ];
 
 const Chat = () => {
+  const { toast } = useToast();
+  const { user } = useGuestUser();
   const [activeTab, setActiveTab] = useState("chatbot");
   const [chatMessages, setChatMessages] = useState<Message[]>([
     {
@@ -57,6 +63,13 @@ const Chat = () => {
   ]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const messageEndRef = useRef<HTMLDivElement>(null);
+  
+  // Rate limiting
+  const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
+  const messageLimit = user?.isGuest ? 5 : 10; // Limit per minute
+  const messageTimeWindow = 60000; // 1 minute
   
   // Mock thread responses
   const [threads, setThreads] = useState(mockStudentThreads);
@@ -64,15 +77,65 @@ const Chat = () => {
   const [newThreadContent, setNewThreadContent] = useState("");
   const [showNewThreadForm, setShowNewThreadForm] = useState(false);
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // Reset message count after time window
+  useEffect(() => {
+    if (lastMessageTime) {
+      const timer = setTimeout(() => {
+        setMessageCount(0);
+        setLastMessageTime(null);
+      }, messageTimeWindow);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [lastMessageTime]);
+
+  // Check rate limiting
+  const checkRateLimit = (): boolean => {
+    const now = new Date();
+    
+    if (lastMessageTime && messageCount >= messageLimit) {
+      const timeSinceLastMessage = now.getTime() - lastMessageTime.getTime();
+      if (timeSinceLastMessage < messageTimeWindow) {
+        toast({
+          title: "Please slow down",
+          description: `You can send ${messageLimit} messages per minute. Try again in a moment.`,
+        });
+        return false;
+      } else {
+        // Reset if time window has passed
+        setMessageCount(1);
+        setLastMessageTime(now);
+        return true;
+      }
+    } else {
+      // Increment counter
+      setMessageCount(prev => prev + 1);
+      setLastMessageTime(now);
+      return true;
+    }
+  };
+
   const sendMessage = async () => {
     if (!userInput.trim()) return;
+    if (!checkRateLimit()) return;
+    
+    // Determine username
+    const username = user?.isGuest ? 
+      "Guest" : 
+      user?.displayName || user?.email || "Student";
     
     // Add user message to chat
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       content: userInput,
       sender: "user",
       timestamp: new Date(),
+      username,
     };
     
     setChatMessages([...chatMessages, userMessage]);
@@ -80,16 +143,25 @@ const Chat = () => {
     setLoading(true);
     
     try {
-      // Simulate AI response (in a real app, this would call the OpenAI API)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Send message to OpenAI via Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          message: userInput,
+          userId: user?.isGuest ? null : user?.id,
+          guestId: user?.isGuest ? user.id : null,
+          passions: user?.passions || []
+        }
+      });
       
-      // Mock AI response with recommended lessons
+      if (error) throw error;
+      
+      // Add AI response
       const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: getAIMockResponse(userInput),
+        id: uuidv4(),
+        content: data.reply,
         sender: "ai",
         timestamp: new Date(),
-        recommendedLessons: ["Market Research Basics", "AI Tools for Entrepreneurs"],
+        recommendedLessons: data.recommendedLessons || [],
       };
       
       setChatMessages(prev => [...prev, aiResponse]);
@@ -98,29 +170,21 @@ const Chat = () => {
       
       // Add error message
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "Sorry, I encountered an error. Please try again later.",
+        id: uuidv4(),
+        content: "The tutor is thinking—please try again in a moment.",
         sender: "ai",
         timestamp: new Date(),
       };
       
       setChatMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Connection error",
+        description: "The tutor is thinking—please try again in a moment.",
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const getAIMockResponse = (input: string): string => {
-    const responses = [
-      "That's a great question about entrepreneurship! Start by validating your idea with potential customers before building anything. Would you like me to recommend some lessons on market research?",
-      "When using AI tools for your startup, make sure to focus on solving real user problems first. The technology should enhance your solution, not be the solution itself.",
-      "For beginners in entrepreneurship, I recommend starting with a small project that you can launch quickly. This helps you learn the process without getting overwhelmed.",
-      "Building a sustainable business requires understanding your unit economics early. Make sure your cost to acquire a customer is less than their lifetime value.",
-      "When creating your MVP (Minimum Viable Product), focus only on the core features that solve your users' main pain point. Everything else can wait for later versions."
-    ];
-    
-    // Return a random response
-    return responses[Math.floor(Math.random() * responses.length)];
   };
 
   const handleThreadSubmit = () => {
@@ -131,7 +195,7 @@ const Chat = () => {
     const newThread = {
       id: Date.now().toString(),
       title: newThreadTitle,
-      author: "You",
+      author: user?.isGuest ? "Guest" : (user?.displayName || user?.email || "You"),
       message: newThreadContent,
       replies: 0,
       kudos: 0,
@@ -169,6 +233,23 @@ const Chat = () => {
           <TabsContent value="chatbot" className="mt-0">
             <div className="bg-ct-white rounded-card shadow-ct h-[calc(100vh-180px)] flex flex-col">
               <div className="flex-1 overflow-y-auto p-4">
+                {/* Guest User Notice */}
+                {user?.isGuest && (
+                  <div className="mb-4 p-2 bg-gray-50 rounded-md text-sm text-gray-600">
+                    You're chatting as a <b>Guest</b>. Your chat history won't be saved. 
+                    {user.passions && user.passions.length > 0 ? (
+                      <p className="mt-1">
+                        Your tutor knows about your interests in: {user.passions.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}
+                      </p>
+                    ) : (
+                      <p className="mt-1">
+                        Update your interests in Settings for more personalized guidance!
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Chat Messages */}
                 {chatMessages.map((message) => (
                   <motion.div
                     key={message.id}
@@ -184,6 +265,9 @@ const Chat = () => {
                           : "bg-gray-100"}
                       `}
                     >
+                      {message.username && message.sender === "user" && (
+                        <p className="text-xs opacity-70 mb-1">{message.username}</p>
+                      )}
                       <p className="mb-1">{message.content}</p>
                       <p className="text-xs opacity-70 text-right">
                         {formatDate(message.timestamp)}
@@ -215,26 +299,36 @@ const Chat = () => {
                     <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }}></div>
                   </div>
                 )}
+                
+                {/* Invisible element for scrolling */}
+                <div ref={messageEndRef} />
               </div>
               
               <div className="p-4 border-t">
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                    placeholder="Ask your AI mentor anything..."
-                    className="flex-1 border rounded-pill py-2 px-4 focus:outline-none focus:ring-1 focus:ring-ct-teal"
-                    disabled={loading}
-                  />
-                  <Button 
-                    onClick={sendMessage}
-                    disabled={loading || !userInput.trim()}
-                    className="ml-2 bg-ct-teal hover:bg-ct-teal/90 rounded-full p-2 h-10 w-10"
-                  >
-                    <Send size={18} />
-                  </Button>
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                      placeholder="Ask your AI mentor anything..."
+                      className="flex-1 border rounded-pill py-2 px-4 focus:outline-none focus:ring-1 focus:ring-ct-teal"
+                      disabled={loading}
+                    />
+                    <Button 
+                      onClick={sendMessage}
+                      disabled={loading || !userInput.trim()}
+                      className="ml-2 bg-ct-teal hover:bg-ct-teal/90 rounded-full p-2 h-10 w-10"
+                    >
+                      <Send size={18} />
+                    </Button>
+                  </div>
+                  {user?.isGuest && messageCount > 0 && (
+                    <p className="text-xs text-gray-500 mt-1 text-right">
+                      {messageLimit - messageCount} messages remaining this minute
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

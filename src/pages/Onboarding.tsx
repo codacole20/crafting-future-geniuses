@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { saveUserPassions, buildPersonalLearningPath } from "@/utils/openai";
+import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from "uuid";
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -27,6 +30,7 @@ const passionOptions = [
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedPassions, setSelectedPassions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -34,30 +38,54 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (selectedPassions.includes(id)) {
       setSelectedPassions(selectedPassions.filter(passionId => passionId !== id));
     } else {
+      // Limit to maximum 6 passions
+      if (selectedPassions.length >= 6) {
+        toast({
+          title: "Maximum 6 passions allowed",
+          description: "Please remove one before adding another."
+        });
+        return;
+      }
       setSelectedPassions([...selectedPassions, id]);
     }
   };
 
   const handleContinue = async () => {
     if (selectedPassions.length === 0) {
-      return; // Require at least one passion
+      toast({
+        title: "Please select at least one interest",
+        description: "This helps us personalize your learning journey."
+      });
+      return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Here we would normally call an API to generate learning plan
-      // For MVP, we'll simulate this with a timeout
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Generate guest ID if not logged in
+      const guestId = uuidv4();
+      localStorage.setItem("guestId", guestId);
       
-      // Store selected passions
-      localStorage.setItem("userPassions", JSON.stringify(selectedPassions));
+      // Save passions to local storage and database
+      await saveUserPassions(selectedPassions, null);
+      
+      // Generate learning path
+      await buildPersonalLearningPath(selectedPassions, null);
+      
+      toast({
+        title: "Your learning path is ready!",
+        description: "Let's begin your entrepreneurial journey."
+      });
       
       // Complete onboarding
       onComplete();
       navigate("/");
     } catch (error) {
       console.error("Error during onboarding:", error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again."
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -71,8 +99,11 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         transition={{ duration: 0.5 }}
       >
         <h1 className="text-3xl font-semibold text-center mb-2 font-poppins">Welcome!</h1>
-        <p className="text-gray-600 text-center mb-8">
+        <p className="text-gray-600 text-center mb-4">
           Tell us what you're passionate about so we can create your personalized learning journey.
+        </p>
+        <p className="text-gray-600 text-center mb-8 text-sm">
+          Select up to 6 interests that excite you.
         </p>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
@@ -111,6 +142,10 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               </label>
             </motion.div>
           ))}
+        </div>
+
+        <div className="text-sm text-center text-gray-500 mb-6">
+          {selectedPassions.length} / 6 interests selected
         </div>
 
         <Button 
