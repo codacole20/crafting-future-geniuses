@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 // Define response headers
 const corsHeaders = {
@@ -51,7 +51,15 @@ serve(async (req) => {
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
     if (!openAIApiKey) {
-      throw new Error("OpenAI API key is not configured");
+      console.error("OpenAI API key is not configured");
+      return new Response(
+        JSON.stringify({ 
+          error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to the secrets." 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
     
     // Validate input
@@ -59,7 +67,7 @@ serve(async (req) => {
       throw new Error("Message is required");
     }
     
-    // Check rate limits
+    // Check rate limits - ensure we accept all users (guest or authenticated)
     const id = userId || guestId || req.headers.get('x-forwarded-for') || 'anonymous';
     const isAuthenticated = !!userId;
     
@@ -74,10 +82,12 @@ serve(async (req) => {
       );
     }
     
-    // Format passions for the system prompt
-    const passionsText = passions && passions.length > 0
-      ? `The user is interested in these topics: ${passions.join(', ')}. Try to relate your answers to these interests when relevant.`
-      : "Try to make your answers relevant to the user's interests when possible.";
+    // Format passions for the system prompt - ensure we always have a list
+    const userPassions = Array.isArray(passions) && passions.length > 0
+      ? passions.slice(0, 6)  // Limit to 6 passions
+      : ["Technology", "Business"];
+    
+    const passionsText = `The user is interested in these topics: ${userPassions.join(', ')}. Try to relate your answers to these interests when relevant.`;
     
     // Create the system prompt
     const systemPrompt = `
@@ -93,7 +103,7 @@ serve(async (req) => {
       6. Be encouraging and supportive of the user's learning journey.
     `;
     
-    // Call OpenAI API
+    // Call OpenAI API with optimized parameters
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -113,13 +123,34 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 800
+        max_tokens: 150      // Limiting tokens as requested
       })
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
+      const errorData = await response.json();
+      const errorStatus = response.status;
+      
+      // Handle specific error statuses
+      if (errorStatus === 401) {
+        return new Response(
+          JSON.stringify({ error: "Authentication error: Invalid OpenAI API key" }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          }
+        );
+      } else if (errorStatus === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded on OpenAI API" }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 429,
+          }
+        );
+      }
+      
+      throw new Error(`OpenAI API error (${errorStatus}): ${JSON.stringify(errorData)}`);
     }
 
     const openaiResponse = await response.json();

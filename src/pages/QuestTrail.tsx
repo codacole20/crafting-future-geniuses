@@ -344,25 +344,29 @@ const QuestTrail = () => {
       if (idx === -1) return;
       if (lessons[idx].completed) return;
 
-      const newXp = xp + lessons[idx].xp_reward;
+      // Calculate new XP
+      const earnedXP = lessons[idx].xp_reward;
+      const newXp = xp + earnedXP;
+      
+      // Update local state immediately for real-time feedback
       const updatedLessons = [...lessons];
       updatedLessons[idx].completed = true;
-      
-      // Update local state
       setLessons(updatedLessons);
+      
+      // Update XP counter with animation effect
       setXp(newXp);
       
-      // Show success toast
+      // Show success toast with animation
       toast({
-        title: `+${lessons[idx].xp_reward} XP`,
-        description: "",
+        title: `+${earnedXP} XP`,
+        description: "Lesson completed!",
       });
       
       // Update localStorage
       localStorage.setItem("userXp", newXp.toString());
       localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
       
-      // Close modal
+      // Close modal after successful completion
       setShowLessonModal(false);
     } catch (error) {
       console.error("Error completing lesson:", error);

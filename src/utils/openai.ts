@@ -11,16 +11,18 @@ export interface GeneratedLesson {
 }
 
 /**
- * Store user passions in localStorage or Supabase based on authentication status
+ * Store user passions in localStorage for immediate access
  */
 export const saveUserPassions = async (passions: string[], userId?: string | null) => {
   // Always store in localStorage for immediate access
   localStorage.setItem("userPassions", JSON.stringify(passions));
   
   try {
+    // Store passions as a JSON string in localStorage for all cases
     if (userId) {
-      // If authenticated, store in database
-      await supabase.from('user_passions')
+      // For authenticated users, store in their profile
+      const { error } = await supabase
+        .from('user_passions')
         .upsert({ 
           user_id: userId,
           passions,
@@ -28,12 +30,15 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
         }, { 
           onConflict: 'user_id' 
         });
+        
+      if (error) throw error;
     } else {
       // For guest users, use session ID
       const guestId = localStorage.getItem("guestId") || crypto.randomUUID();
       localStorage.setItem("guestId", guestId);
       
-      await supabase.from('user_passions')
+      const { error } = await supabase
+        .from('user_passions')
         .upsert({ 
           guest_id: guestId,
           passions,
@@ -41,9 +46,12 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
         }, { 
           onConflict: 'guest_id' 
         });
+        
+      if (error) throw error;
     }
   } catch (error) {
     console.error("Error saving passions:", error);
+    // Still save to localStorage even if database save fails
   }
 };
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
@@ -124,10 +123,15 @@ const Chat = () => {
     if (!userInput.trim()) return;
     if (!checkRateLimit()) return;
     
-    // Determine username
-    const username = user?.isGuest ? 
-      "Guest" : 
-      user?.displayName || user?.email || "Student";
+    // Determine username - handle both guest and authenticated users
+    let username = "Guest";
+    if (user) {
+      if (!user.isGuest && "displayName" in user) {
+        username = user.displayName || user.email || "Student";
+      } else if (user.isGuest) {
+        username = "Guest";
+      }
+    }
     
     // Add user message to chat
     const userMessage: Message = {
@@ -153,7 +157,13 @@ const Chat = () => {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        // Check for timeout
+        if (error.message && error.message.includes('timeout')) {
+          throw new Error("Request timed out after 20s. The tutor is thinking—please try again in a moment.");
+        }
+        throw error;
+      }
       
       // Add AI response
       const aiResponse: Message = {
@@ -165,22 +175,33 @@ const Chat = () => {
       };
       
       setChatMessages(prev => [...prev, aiResponse]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting AI response:", error);
       
+      // Add more specific error messages based on response status
+      let errorMessage = "The tutor is thinking—please try again in a moment.";
+      
+      if (error.message) {
+        if (error.message.includes("401")) {
+          errorMessage = "Authentication error: The AI service couldn't be reached (invalid key).";
+        } else if (error.message.includes("429")) {
+          errorMessage = "Too many requests: Please wait a moment before trying again.";
+        }
+      }
+      
       // Add error message
-      const errorMessage: Message = {
+      const errorResponseMessage: Message = {
         id: uuidv4(),
-        content: "The tutor is thinking—please try again in a moment.",
+        content: errorMessage,
         sender: "ai",
         timestamp: new Date(),
       };
       
-      setChatMessages(prev => [...prev, errorMessage]);
+      setChatMessages(prev => [...prev, errorResponseMessage]);
       
       toast({
         title: "Connection error",
-        description: "The tutor is thinking—please try again in a moment.",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -190,12 +211,20 @@ const Chat = () => {
   const handleThreadSubmit = () => {
     if (!newThreadTitle.trim() || !newThreadContent.trim()) return;
     
-    // In a real app, we would check for profanity here
+    // Get author name, handle both guest and authenticated users
+    let authorName = "Guest";
+    if (user) {
+      if (!user.isGuest && "displayName" in user) {
+        authorName = user.displayName || user.email || "You";
+      } else if (user.isGuest) {
+        authorName = "Guest";
+      }
+    }
     
     const newThread = {
       id: Date.now().toString(),
       title: newThreadTitle,
-      author: user?.isGuest ? "Guest" : (user?.displayName || user?.email || "You"),
+      author: authorName,
       message: newThreadContent,
       replies: 0,
       kudos: 0,

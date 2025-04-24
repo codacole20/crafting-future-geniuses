@@ -9,13 +9,27 @@ interface HeaderCardProps {
 }
 
 export default function HeaderCard({ xp, streak, streakGlow }: HeaderCardProps) {
-  const displayXp = Number(xp) || 0; // Ensure XP is always a number, defaulting to 0
+  // Ensure XP is always a number, defaulting to 0
+  const displayXp = Number(xp) || 0;
   
   return (
-    <div className="w-full bg-[#FAF8F3] rounded-[20px] shadow-ct py-4 px-5 flex justify-between items-center mb-3">
+    <motion.div 
+      className="w-full bg-[#FAF8F3] rounded-[20px] shadow-ct py-4 px-5 flex justify-between items-center mb-3"
+      initial={{ opacity: 0.8 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div>
         <div className="text-md font-poppins text-gray-600 mb-1">XP Bank</div>
-        <div className="text-2xl font-bold text-[#7BB3E5] font-poppins">{displayXp}</div>
+        <motion.div 
+          className="text-2xl font-bold text-[#7BB3E5] font-poppins"
+          key={displayXp} // This forces a re-render when XP changes
+          initial={{ scale: 1 }}
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
+          {displayXp}
+        </motion.div>
       </div>
       <motion.div
         className="flex items-center"
@@ -27,6 +41,6 @@ export default function HeaderCard({ xp, streak, streakGlow }: HeaderCardProps) 
           <span className="font-poppins font-semibold text-gray-800">{streak}</span>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
