@@ -53,11 +53,20 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
         .from('avatars')
         .getPublicUrl(fileName);
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
       // Update user's avatar URL in profiles
+      // Convert string ID to number if needed for Crafting Tomorrow Users table
+      const numericId = user.id ? parseInt(user.id, 10) : null;
+      
+      if (!numericId) throw new Error("Invalid user ID");
+
       const { error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
         .update({ avatar_url: publicUrl })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('id', numericId);
 
       if (updateError) throw updateError;
 
