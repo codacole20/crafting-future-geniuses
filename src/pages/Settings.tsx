@@ -9,6 +9,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 
+const passionOptions = [
+  { id: "design", label: "Design" },
+  { id: "photography", label: "Photography" },
+  { id: "coding", label: "Coding" },
+  { id: "music", label: "Music" },
+  { id: "writing", label: "Writing" },
+  { id: "drawing", label: "Drawing" },
+  { id: "painting", label: "Painting" },
+  { id: "animation", label: "Animation" },
+  { id: "filmmaking", label: "Filmmaking" },
+];
+
+const languageOptions = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "it", label: "Italian" },
+  { value: "pt", label: "Portuguese" },
+  { value: "zh", label: "Chinese" },
+  { value: "ja", label: "Japanese" },
+];
+
 const Settings = () => {
   const [user, setUser] = useState({
     email: "student@example.com",

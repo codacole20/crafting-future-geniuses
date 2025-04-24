@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Camera, Upload } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from "@supabase/supabase-js";
 
 interface AvatarUploadDialogProps {
   open: boolean;
@@ -38,8 +37,8 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
       // Get file extension
       const ext = file.name.split('.').pop();
       
-      // Create unique file name
-      const fileName = `${uuidv4()}.${ext}`;
+      // Create unique file name using timestamp to avoid collisions
+      const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${ext}`;
       
       const { data, error } = await supabase.storage
         .from('avatars')
