@@ -8,49 +8,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple rate limiting
-const rateLimits = new Map();
-const RATE_LIMIT = 5; // requests per minute
-const WINDOW_MS = 60 * 1000; // 1 minute
-
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, userId } = await req.json();
+    const { message, userId, username } = await req.json();
     
-    if (!message || !userId) {
-      throw new Error("Message and userId are required");
+    if (!message) {
+      throw new Error("Message is required");
     }
 
-    // Check rate limit
-    const now = Date.now();
-    const userKey = `user-${userId}`;
-    const userRateData = rateLimits.get(userKey) || { count: 0, resetAt: now + WINDOW_MS };
-    
-    // Reset counter if window has expired
-    if (now > userRateData.resetAt) {
-      userRateData.count = 0;
-      userRateData.resetAt = now + WINDOW_MS;
+    // Only apply rate limiting for anonymous users
+    if (!userId) {
+      const now = Date.now();
+      const anonKey = `anon-${req.headers.get('x-real-ip') || 'unknown'}`;
+      const rateData = rateLimits.get(anonKey) || { count: 0, resetAt: now + WINDOW_MS };
+      
+      if (now > rateData.resetAt) {
+        rateData.count = 0;
+        rateData.resetAt = now + WINDOW_MS;
+      }
+      
+      if (rateData.count >= RATE_LIMIT) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: "Rate limit exceeded. Please try again in a minute or sign in for more requests." 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 429,
+        });
+      }
+      
+      rateData.count++;
+      rateLimits.set(anonKey, rateData);
     }
-    
-    // Check if user has exceeded rate limit
-    if (userRateData.count >= RATE_LIMIT) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: "Rate limit exceeded. Please try again in a minute." 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 429,
-      });
-    }
-    
-    // Increment counter and save
-    userRateData.count++;
-    rateLimits.set(userKey, userRateData);
 
     // Get OpenAI API key
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -58,28 +51,27 @@ serve(async (req) => {
       throw new Error("OpenAI API key not configured");
     }
 
-    // Set up Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://gjwwzygpxigmhxugftse.supabase.co';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Fetch user passions only if userId is provided
+    let passions = ["AI", "entrepreneurship"]; // Default passions for anonymous users
+    
+    if (userId) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://gjwwzygpxigmhxugftse.supabase.co';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user passions
-    const { data: userData, error: userError } = await supabase
-      .from('Crafting Tomorrow Users')
-      .select('passions')
-      .eq('id', userId)
-      .single();
-      
-    if (userError || !userData) {
-      throw new Error("Could not retrieve user data");
+      const { data: userData, error: userError } = await supabase
+        .from('Crafting Tomorrow Users')
+        .select('passions')
+        .eq('id', userId)
+        .single();
+        
+      if (!userError && userData?.passions?.length) {
+        passions = userData.passions;
+      }
     }
 
-    const passions = userData.passions || [];
-    const passionsList = passions.length > 0 ? passions.join(', ') : "AI and entrepreneurship";
-
-    // Create system prompt with user's passions
-    const systemPrompt = `You are MentorBot, a friendly advisor who explains AI and entrepreneurship through the lens of the student's passions.
-The student is passionate about: ${passionsList}.
+    const systemPrompt = `You are MentorBot, a friendly advisor who explains AI and entrepreneurship through the lens of the ${username || 'user'}'s passions.
+The user is passionate about: ${passions.join(', ')}.
 Keep answers concise, concrete, and age-appropriate.`;
 
     // Call OpenAI API
@@ -106,13 +98,12 @@ Keep answers concise, concrete, and age-appropriate.`;
       throw new Error("Invalid response from OpenAI");
     }
     
-    // Extract AI response
     const aiResponse = openaiData.choices[0].message.content;
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: aiResponse,
-      remainingRequests: RATE_LIMIT - userRateData.count
+      remainingRequests: userId ? undefined : RATE_LIMIT - (rateLimits.get(anonKey)?.count || 0)
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
@@ -128,3 +119,4 @@ Keep answers concise, concrete, and age-appropriate.`;
     });
   }
 });
+

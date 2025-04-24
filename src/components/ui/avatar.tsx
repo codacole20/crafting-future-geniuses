@@ -11,7 +11,7 @@ const Avatar = React.forwardRef<
   <AvatarPrimitive.Root
     ref={ref}
     className={cn(
-      "relative flex h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted", // Changed from h-10 w-10 to h-12 w-12 for 48px
+      "relative flex h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted",
       className
     )}
     {...props}
@@ -47,3 +47,5 @@ const AvatarFallback = React.forwardRef<
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
 export { Avatar, AvatarImage, AvatarFallback }
+export default Avatar
+

@@ -11,3 +11,4 @@ export interface DbUser {
 }
 
 export type DbUserUpdate = Partial<Omit<DbUser, "id" | "email">>;
+
