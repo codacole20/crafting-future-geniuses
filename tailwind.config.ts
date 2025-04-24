@@ -58,12 +58,12 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				// Brand colors
-				"ct-paper": "#FFF3D6",       // Updated from FAF8F3 to warmer cream
-				"ct-white": "#FEFEFE",       // Pure white for surfaces
-				"ct-teal": "#7BB3E5",        // Kept unchanged
-				"ct-sky": "#A2E3F4",         // Kept unchanged
-				"ct-yellow": "#FACD7B",      // Kept unchanged
-				"ct-gold": "#EBC367",        // Kept unchanged
+				"ct-paper": "#FAF8F3",       // Primary background
+				"ct-white": "#FEFEFE",       // Pure white
+				"ct-teal": "#7BB3E5",        // Teal accent
+				"ct-sky": "#A2E3F4",         // Sky blue
+				"ct-yellow": "#FACD7B",      // Sun yellow
+				"ct-gold": "#EBC367",        // Gold
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
