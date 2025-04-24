@@ -54,10 +54,10 @@ serve(async (req) => {
       console.error("OpenAI API key is not configured");
       return new Response(
         JSON.stringify({ 
-          error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to the secrets." 
+          error: "No OpenAI key configured. Please add OPENAI_API_KEY to the secrets." 
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
+          status: 401,
         }
       );
     }

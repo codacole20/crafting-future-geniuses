@@ -10,20 +10,17 @@ import { buildPersonalLearningPath, GeneratedLesson } from "@/utils/openai";
 import { Button } from "@/components/ui/button";
 import { passionOptions } from "@/constants/passions";
 
-// Define types
 interface Lesson extends GeneratedLesson {
   id: string;
   completed: boolean;
 }
 
-// Define lesson tag types
 const lessonTags = {
   video: { icon: "📺", label: "Watch" },
   quiz: { icon: "❓", label: "Quiz" },
   scenario: { icon: "🎭", label: "Scenario" },
 };
 
-// --- Tooltip component for node ---
 function NodeTooltip({ text, visible }: { text: string; visible: boolean }) {
   return (
     <div
@@ -41,7 +38,6 @@ function NodeTooltip({ text, visible }: { text: string; visible: boolean }) {
   );
 }
 
-// --- TrailNodeCircle component with tooltip ---
 function TrailNodeCircle({
   state,
   sequence,
@@ -61,7 +57,6 @@ function TrailNodeCircle({
   title: string;
   showTooltip: boolean;
 }) {
-  // Color/size classes
   let classNames =
     "node-circle select-none cursor-pointer transition-shadow shadow-ct relative";
   if (state === "completed") classNames += " node-completed";
@@ -99,7 +94,6 @@ function TrailNodeCircle({
   );
 }
 
-// --- TrailLessonCard ---
 function TrailLessonCard({
   locked,
   title,
@@ -167,7 +161,6 @@ const QuestTrail = () => {
   const [error, setError] = useState<string | null>(null);
   const [generatingPath, setGeneratingPath] = useState(false);
 
-  // For tooltips (hover/long-press); stores the index of node hovered
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -177,13 +170,19 @@ const QuestTrail = () => {
   const loadUserData = async () => {
     setLoading(true);
     try {
-      // Load XP and streak from localStorage
       const savedXp = localStorage.getItem("userXp");
       const savedStreak = localStorage.getItem("userStreak");
-      if (savedXp) setXp(parseInt(savedXp));
+      
+      if (savedXp) {
+        const parsedXp = parseInt(savedXp);
+        setXp(!isNaN(parsedXp) ? parsedXp : 0);
+      } else {
+        setXp(0);
+        localStorage.setItem("userXp", "0");
+      }
+      
       if (savedStreak) setStreak(parseInt(savedStreak));
       
-      // Track login streak
       const today = new Date().toDateString();
       const lastLoginDate = localStorage.getItem("lastLoginDate");
       if (lastLoginDate && lastLoginDate !== today) {
@@ -208,17 +207,14 @@ const QuestTrail = () => {
       }
       localStorage.setItem("lastLoginDate", today);
       
-      // Load lessons from localStorage first
       const savedLessons = localStorage.getItem("userLessons");
       if (savedLessons) {
         setLessons(JSON.parse(savedLessons));
       }
       
-      // If user has passions, generate a custom learning path
       if (user && user.passions && user.passions.length > 0) {
         await generateLearningPath();
       } else {
-        // Use default lessons from localStorage if no passions are set
         const defaultLessons = [
           {
             id: "lesson1",
@@ -296,20 +292,17 @@ const QuestTrail = () => {
     setError(null);
     
     try {
-      // Get generated lessons from OpenAI
       const generatedLessons = await buildPersonalLearningPath(
         user.passions,
         user.isGuest ? null : user.id
       );
       
-      // Convert to our lesson format
       const newLessons = generatedLessons.map((lesson, i) => ({
         ...lesson,
         id: `lesson${i+1}`,
         completed: false
       }));
       
-      // Update local state and storage
       setLessons(newLessons);
       localStorage.setItem("userLessons", JSON.stringify(newLessons));
       
@@ -321,7 +314,6 @@ const QuestTrail = () => {
       console.error("Error generating learning path:", err);
       setError("We couldn't generate your custom path. Using a default path instead.");
       
-      // Load default lessons as fallback
       const savedLessons = localStorage.getItem("userLessons");
       if (savedLessons) {
         setLessons(JSON.parse(savedLessons));
@@ -344,29 +336,24 @@ const QuestTrail = () => {
       if (idx === -1) return;
       if (lessons[idx].completed) return;
 
-      // Calculate new XP
       const earnedXP = lessons[idx].xp_reward;
-      const newXp = xp + earnedXP;
+      const currentXp = typeof xp === 'number' && !isNaN(xp) ? xp : 0;
+      const newXp = currentXp + earnedXP;
       
-      // Update local state immediately for real-time feedback
       const updatedLessons = [...lessons];
       updatedLessons[idx].completed = true;
       setLessons(updatedLessons);
       
-      // Update XP counter with animation effect
       setXp(newXp);
       
-      // Show success toast with animation
       toast({
         title: `+${earnedXP} XP`,
         description: "Lesson completed!",
       });
       
-      // Update localStorage
       localStorage.setItem("userXp", newXp.toString());
       localStorage.setItem("userLessons", JSON.stringify(updatedLessons));
       
-      // Close modal after successful completion
       setShowLessonModal(false);
     } catch (error) {
       console.error("Error completing lesson:", error);

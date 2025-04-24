@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
@@ -147,6 +148,10 @@ const Chat = () => {
     setLoading(true);
     
     try {
+      // Set a longer timeout for OpenAI requests (20s)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      
       // Send message to OpenAI via Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
@@ -154,15 +159,27 @@ const Chat = () => {
           userId: user?.isGuest ? null : user?.id,
           guestId: user?.isGuest ? user.id : null,
           passions: user?.passions || []
-        }
+        },
+        signal: controller.signal,
       });
       
+      clearTimeout(timeoutId);
+      
       if (error) {
-        // Check for timeout
-        if (error.message && error.message.includes('timeout')) {
-          throw new Error("Request timed out after 20s. The tutor is thinking—please try again in a moment.");
+        // Check for specific error types
+        let errorMessage: string;
+        
+        if (error.message && error.message.includes('AbortError')) {
+          errorMessage = "Request timed out after 20s. The tutor is thinking—please try again in a moment.";
+        } else if (error.message && error.message.includes('401')) {
+          errorMessage = "Authentication error: No OpenAI key configured.";
+        } else if (error.message && error.message.includes('429')) {
+          errorMessage = "Too many requests: Rate limit exceeded. Please wait a moment before trying again.";
+        } else {
+          errorMessage = "The tutor is experiencing technical difficulties. Please try again.";
         }
-        throw error;
+        
+        throw new Error(errorMessage);
       }
       
       // Add AI response
@@ -178,16 +195,8 @@ const Chat = () => {
     } catch (error: any) {
       console.error("Error getting AI response:", error);
       
-      // Add more specific error messages based on response status
-      let errorMessage = "The tutor is thinking—please try again in a moment.";
-      
-      if (error.message) {
-        if (error.message.includes("401")) {
-          errorMessage = "Authentication error: The AI service couldn't be reached (invalid key).";
-        } else if (error.message.includes("429")) {
-          errorMessage = "Too many requests: Please wait a moment before trying again.";
-        }
-      }
+      // Use the specific error message
+      const errorMessage = error.message || "The tutor is experiencing technical difficulties. Please try again.";
       
       // Add error message
       const errorResponseMessage: Message = {

@@ -10,7 +10,7 @@ interface HeaderCardProps {
 
 export default function HeaderCard({ xp, streak, streakGlow }: HeaderCardProps) {
   // Ensure XP is always a number, defaulting to 0
-  const displayXp = typeof xp === 'number' ? xp : 0;
+  const displayXp = typeof xp === 'number' && !isNaN(xp) ? xp : 0;
   
   return (
     <motion.div 
