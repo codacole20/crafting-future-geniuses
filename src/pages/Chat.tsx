@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
@@ -18,7 +17,6 @@ interface Message {
   username?: string;
 }
 
-// Mock data for student forum threads
 const mockStudentThreads = [
   {
     id: "thread1",
@@ -65,24 +63,20 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const messageEndRef = useRef<HTMLDivElement>(null);
   
-  // Rate limiting
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
   const [messageCount, setMessageCount] = useState(0);
-  const messageLimit = user?.isGuest ? 5 : 10; // Limit per minute
-  const messageTimeWindow = 60000; // 1 minute
-  
-  // Mock thread responses
+  const messageLimit = user?.isGuest ? 5 : 10;
+  const messageTimeWindow = 60000;
+
   const [threads, setThreads] = useState(mockStudentThreads);
   const [newThreadTitle, setNewThreadTitle] = useState("");
   const [newThreadContent, setNewThreadContent] = useState("");
   const [showNewThreadForm, setShowNewThreadForm] = useState(false);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // Reset message count after time window
   useEffect(() => {
     if (lastMessageTime) {
       const timer = setTimeout(() => {
@@ -94,7 +88,6 @@ const Chat = () => {
     }
   }, [lastMessageTime]);
 
-  // Check rate limiting
   const checkRateLimit = (): boolean => {
     const now = new Date();
     
@@ -107,13 +100,11 @@ const Chat = () => {
         });
         return false;
       } else {
-        // Reset if time window has passed
         setMessageCount(1);
         setLastMessageTime(now);
         return true;
       }
     } else {
-      // Increment counter
       setMessageCount(prev => prev + 1);
       setLastMessageTime(now);
       return true;
@@ -124,7 +115,6 @@ const Chat = () => {
     if (!userInput.trim()) return;
     if (!checkRateLimit()) return;
     
-    // Determine username - handle both guest and authenticated users
     let username = "Guest";
     if (user) {
       if (!user.isGuest && "displayName" in user) {
@@ -134,7 +124,6 @@ const Chat = () => {
       }
     }
     
-    // Add user message to chat
     const userMessage: Message = {
       id: uuidv4(),
       content: userInput,
@@ -148,41 +137,31 @@ const Chat = () => {
     setLoading(true);
     
     try {
-      // Set a longer timeout for OpenAI requests (20s)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      const timeoutId = setTimeout(() => {
+        throw new Error("Request timed out. The tutor is thinking—please try again in a moment.");
+      }, 20000);
       
-      // Send message to OpenAI via Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
           message: userInput,
           userId: user?.isGuest ? null : user?.id,
           guestId: user?.isGuest ? user.id : null,
           passions: user?.passions || []
-        },
-        signal: controller.signal,
+        }
       });
       
       clearTimeout(timeoutId);
       
       if (error) {
-        // Check for specific error types
-        let errorMessage: string;
-        
-        if (error.message && error.message.includes('AbortError')) {
-          errorMessage = "Request timed out after 20s. The tutor is thinking—please try again in a moment.";
-        } else if (error.message && error.message.includes('401')) {
-          errorMessage = "Authentication error: No OpenAI key configured.";
+        if (error.message && error.message.includes('401')) {
+          throw new Error("No OpenAI key configured.");
         } else if (error.message && error.message.includes('429')) {
-          errorMessage = "Too many requests: Rate limit exceeded. Please wait a moment before trying again.";
-        } else {
-          errorMessage = "The tutor is experiencing technical difficulties. Please try again.";
+          throw new Error("Rate limit hit, please wait a minute.");
         }
         
-        throw new Error(errorMessage);
+        throw error;
       }
       
-      // Add AI response
       const aiResponse: Message = {
         id: uuidv4(),
         content: data.reply,
@@ -195,10 +174,8 @@ const Chat = () => {
     } catch (error: any) {
       console.error("Error getting AI response:", error);
       
-      // Use the specific error message
       const errorMessage = error.message || "The tutor is experiencing technical difficulties. Please try again.";
       
-      // Add error message
       const errorResponseMessage: Message = {
         id: uuidv4(),
         content: errorMessage,
@@ -220,7 +197,6 @@ const Chat = () => {
   const handleThreadSubmit = () => {
     if (!newThreadTitle.trim() || !newThreadContent.trim()) return;
     
-    // Get author name, handle both guest and authenticated users
     let authorName = "Guest";
     if (user) {
       if (!user.isGuest && "displayName" in user) {
@@ -271,7 +247,6 @@ const Chat = () => {
           <TabsContent value="chatbot" className="mt-0">
             <div className="bg-ct-white rounded-card shadow-ct h-[calc(100vh-180px)] flex flex-col">
               <div className="flex-1 overflow-y-auto p-4">
-                {/* Guest User Notice */}
                 {user?.isGuest && (
                   <div className="mb-4 p-2 bg-gray-50 rounded-md text-sm text-gray-600">
                     You're chatting as a <b>Guest</b>. Your chat history won't be saved. 
@@ -287,7 +262,6 @@ const Chat = () => {
                   </div>
                 )}
                 
-                {/* Chat Messages */}
                 {chatMessages.map((message) => (
                   <motion.div
                     key={message.id}
@@ -338,7 +312,6 @@ const Chat = () => {
                   </div>
                 )}
                 
-                {/* Invisible element for scrolling */}
                 <div ref={messageEndRef} />
               </div>
               
