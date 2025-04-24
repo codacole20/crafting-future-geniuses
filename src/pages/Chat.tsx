@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
@@ -137,11 +138,15 @@ const Chat = () => {
     setLoading(true);
     
     try {
-      const timeoutId = setTimeout(() => {
-        throw new Error("Request timed out. The tutor is thinking—please try again in a moment.");
-      }, 20000);
+      let timeoutId: number | undefined = undefined;
       
-      const { data, error } = await supabase.functions.invoke('ai-chat', {
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error("Request timed out. The tutor is thinking—please try again in a moment."));
+        }, 20000) as unknown as number;
+      });
+      
+      const responsePromise = supabase.functions.invoke('ai-chat', {
         body: {
           message: userInput,
           userId: user?.isGuest ? null : user?.id,
@@ -150,16 +155,32 @@ const Chat = () => {
         }
       });
       
-      clearTimeout(timeoutId);
+      // Race between timeout and response
+      const result = await Promise.race([responsePromise, timeoutPromise]);
+      
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      const { data, error } = result as Awaited<ReturnType<typeof responsePromise>>;
       
       if (error) {
+        console.error("Edge function error:", error);
+        let errorMsg = "The tutor is experiencing technical difficulties. Please try again.";
+        
         if (error.message && error.message.includes('401')) {
-          throw new Error("No OpenAI key configured.");
+          errorMsg = "No OpenAI key configured. Please add a valid key.";
         } else if (error.message && error.message.includes('429')) {
-          throw new Error("Rate limit hit, please wait a minute.");
+          errorMsg = "Rate limit hit, please wait a minute before trying again.";
         }
         
-        throw error;
+        throw new Error(errorMsg);
+      }
+      
+      if (!data) {
+        throw new Error("No response from the AI tutor. Please try again.");
+      }
+      
+      if (data.error) {
+        throw new Error(data.error);
       }
       
       const aiResponse: Message = {

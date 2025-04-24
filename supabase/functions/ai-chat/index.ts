@@ -103,6 +103,8 @@ serve(async (req) => {
       6. Be encouraging and supportive of the user's learning journey.
     `;
     
+    console.log("Calling OpenAI API with key:", openAIApiKey ? "Key exists" : "No key found");
+    
     // Call OpenAI API with optimized parameters
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -130,6 +132,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorData = await response.json();
       const errorStatus = response.status;
+      console.error(`OpenAI API error (${errorStatus}):`, JSON.stringify(errorData));
       
       // Handle specific error statuses
       if (errorStatus === 401) {
