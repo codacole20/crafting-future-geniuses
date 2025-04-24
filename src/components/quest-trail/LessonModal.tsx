@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -51,7 +50,16 @@ export default function LessonModal({
         <div className="mb-6">
           {lesson.type === "video" && (
             <div className="aspect-video bg-gray-100 rounded flex items-center justify-center mb-4">
-              <span className="text-gray-500">Video Placeholder</span>
+              {lesson.title === "Introduction to AI & Entrepreneurship" ? (
+                <iframe 
+                  src="https://www.loom.com/embed/720b31c8ab4349838344c5461a0a0929" 
+                  frameBorder="0" 
+                  allowFullScreen 
+                  className="w-full h-full rounded"
+                ></iframe>
+              ) : (
+                <span className="text-gray-500">Video Placeholder</span>
+              )}
             </div>
           )}
           {lesson.type === "quiz" && (
