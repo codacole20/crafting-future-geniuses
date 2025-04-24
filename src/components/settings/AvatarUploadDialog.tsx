@@ -1,10 +1,10 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Upload } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { Camera } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AvatarUploadDialogProps {
@@ -34,12 +34,13 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
         return;
       }
 
-      // Get file extension
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Create a unique filename using user ID and timestamp
       const ext = file.name.split('.').pop();
-      
-      // Create a valid filename that doesn't confuse Supabase
-      const randomId = Math.random().toString(36).substring(2, 10);
-      const fileName = `${randomId}-${Date.now()}.${ext}`;
+      const fileName = `${user.id}-${Date.now()}.${ext}`;
       
       // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -53,20 +54,12 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      // Update user's avatar URL in profiles
-      // Convert string ID to number if needed for Crafting Tomorrow Users table
-      const numericId = user.id ? parseInt(user.id, 10) : null;
-      
-      if (!numericId) throw new Error("Invalid user ID");
-
+      // Update user's avatar URL in the Crafting Tomorrow Users table
+      // Use the raw user ID string since we're not dealing with numeric IDs anymore
       const { error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
         .update({ avatar_url: publicUrl })
-        .eq('id', numericId);
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
@@ -75,13 +68,13 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
       
       toast({
         title: "Success",
-        description: "Avatar updated successfully",
+        description: "Profile photo updated successfully",
       });
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast({
         title: "Error",
-        description: "Failed to upload avatar",
+        description: "Failed to upload avatar. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -94,6 +87,9 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Update Profile Picture</DialogTitle>
+          <DialogDescription>
+            Choose a new avatar image. It will appear on your profile and in chat messages.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="flex flex-col items-center gap-4">
