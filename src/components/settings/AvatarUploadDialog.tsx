@@ -37,8 +37,10 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
       // Get file extension
       const ext = file.name.split('.').pop();
       
-      // Create unique file name using timestamp to avoid collisions
-      const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${ext}`;
+      // Create a valid filename that doesn't confuse Supabase
+      // Using a random string prefix to avoid uuid parsing errors
+      const randomId = Math.random().toString(36).substring(2, 10);
+      const fileName = `avatar-${randomId}-${Date.now()}.${ext}`;
       
       const { data, error } = await supabase.storage
         .from('avatars')
