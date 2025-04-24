@@ -48,6 +48,11 @@ serve(async (req) => {
   
   try {
     const { message, userId, guestId, passions } = await req.json();
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
+    if (!openAIApiKey) {
+      throw new Error("OpenAI API key is not configured");
+    }
     
     // Validate input
     if (!message) {
@@ -93,7 +98,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`
+        'Authorization': `Bearer ${openAIApiKey}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -119,22 +124,6 @@ serve(async (req) => {
 
     const openaiResponse = await response.json();
     const aiReply = openaiResponse.choices[0].message.content;
-    
-    // Store message in database for authenticated users
-    if (userId) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") || '',
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ''
-        );
-        
-        // Save user message and AI reply
-        // This would require a chat_messages table
-      } catch (dbError) {
-        console.error("Error saving chat message:", dbError);
-        // Continue even if database save fails
-      }
-    }
 
     // Return the AI's response
     return new Response(

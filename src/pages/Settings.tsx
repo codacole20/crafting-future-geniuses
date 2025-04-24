@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
@@ -13,18 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useGuestUser } from "@/hooks/useGuestUser";
 import { buildPersonalLearningPath } from "@/utils/openai";
-
-const passionOptions = [
-  { id: "design", label: "Design" },
-  { id: "photography", label: "Photography" },
-  { id: "coding", label: "Coding" },
-  { id: "music", label: "Music" },
-  { id: "writing", label: "Writing" },
-  { id: "drawing", label: "Drawing" },
-  { id: "painting", label: "Painting" },
-  { id: "animation", label: "Animation" },
-  { id: "filmmaking", label: "Filmmaking" },
-];
+import { passionOptions } from "@/constants/passions";
 
 const languageOptions = [
   { value: "en", label: "English" },
@@ -60,7 +48,6 @@ const Settings = () => {
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [isGeneratingPath, setIsGeneratingPath] = useState(false);
 
-  // Initialize from authenticated user or guest
   useEffect(() => {
     if (user) {
       setLocalUser(prev => ({
@@ -78,7 +65,6 @@ const Settings = () => {
     if (localUser.passions.includes(id)) {
       newPassions = localUser.passions.filter(passionId => passionId !== id);
     } else {
-      // Limit to 6 passions
       if (localUser.passions.length >= 6) {
         toast({
           title: "Maximum 6 passions allowed",
@@ -106,14 +92,11 @@ const Settings = () => {
     setIsUpdating(true);
     
     try {
-      // Update passions through our context
       await updateUserPassions(localUser.passions);
       
-      // Generate a new learning path based on updated passions
       setIsGeneratingPath(true);
       await buildPersonalLearningPath(localUser.passions, user?.isGuest ? null : user?.id);
       
-      // Show success message
       setUpdateSuccess(true);
       toast({
         title: "Your new path is ready—let's dive in!",

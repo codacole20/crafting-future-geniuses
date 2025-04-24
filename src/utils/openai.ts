@@ -17,11 +17,10 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
   // Always store in localStorage for immediate access
   localStorage.setItem("userPassions", JSON.stringify(passions));
   
-  if (userId) {
-    // If authenticated, store in database
-    try {
-      await supabase
-        .from('user_passions')
+  try {
+    if (userId) {
+      // If authenticated, store in database
+      await supabase.from('user_passions')
         .upsert({ 
           user_id: userId,
           passions,
@@ -29,17 +28,12 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
         }, { 
           onConflict: 'user_id' 
         });
-    } catch (error) {
-      console.error("Error saving passions to database:", error);
-    }
-  } else {
-    // For guest users, use session ID
-    const guestId = localStorage.getItem("guestId") || crypto.randomUUID();
-    localStorage.setItem("guestId", guestId);
-    
-    try {
-      await supabase
-        .from('user_passions')
+    } else {
+      // For guest users, use session ID
+      const guestId = localStorage.getItem("guestId") || crypto.randomUUID();
+      localStorage.setItem("guestId", guestId);
+      
+      await supabase.from('user_passions')
         .upsert({ 
           guest_id: guestId,
           passions,
@@ -47,9 +41,9 @@ export const saveUserPassions = async (passions: string[], userId?: string | nul
         }, { 
           onConflict: 'guest_id' 
         });
-    } catch (error) {
-      console.error("Error saving guest passions to database:", error);
     }
+  } catch (error) {
+    console.error("Error saving passions:", error);
   }
 };
 
@@ -66,7 +60,7 @@ export const getUserPassions = async (userId?: string | null): Promise<string[]>
     
     // If authenticated, try to get from database
     if (userId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_passions')
         .select('passions')
         .eq('user_id', userId)
@@ -81,7 +75,7 @@ export const getUserPassions = async (userId?: string | null): Promise<string[]>
       // For guest users, use guest ID
       const guestId = localStorage.getItem("guestId");
       if (guestId) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_passions')
           .select('passions')
           .eq('guest_id', guestId)

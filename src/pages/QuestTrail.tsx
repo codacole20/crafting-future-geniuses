@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import LessonCard from "@/components/quest-trail/LessonCard";
@@ -9,6 +8,7 @@ import { CircleCheck, Lock, Circle } from "lucide-react";
 import { useGuestUser } from "@/hooks/useGuestUser";
 import { buildPersonalLearningPath, GeneratedLesson } from "@/utils/openai";
 import { Button } from "@/components/ui/button";
+import { passionOptions } from "@/constants/passions";
 
 // Define types
 interface Lesson extends GeneratedLesson {

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -7,26 +6,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { saveUserPassions, buildPersonalLearningPath } from "@/utils/openai";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
+import { passionOptions } from "@/constants/passions";
 
 interface OnboardingProps {
   onComplete: () => void;
 }
-
-// Sample passion options
-const passionOptions = [
-  { id: "tech", label: "Technology" },
-  { id: "business", label: "Business" },
-  { id: "art", label: "Art & Design" },
-  { id: "environment", label: "Environment" },
-  { id: "education", label: "Education" },
-  { id: "health", label: "Health & Fitness" },
-  { id: "social", label: "Social Impact" },
-  { id: "finance", label: "Finance" },
-  { id: "gaming", label: "Gaming" },
-  { id: "music", label: "Music & Audio" },
-  { id: "writing", label: "Writing" },
-  { id: "fashion", label: "Fashion" },
-];
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
   const navigate = useNavigate();
@@ -38,7 +22,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (selectedPassions.includes(id)) {
       setSelectedPassions(selectedPassions.filter(passionId => passionId !== id));
     } else {
-      // Limit to maximum 6 passions
       if (selectedPassions.length >= 6) {
         toast({
           title: "Maximum 6 passions allowed",
@@ -62,14 +45,11 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     setIsSubmitting(true);
 
     try {
-      // Generate guest ID if not logged in
       const guestId = uuidv4();
       localStorage.setItem("guestId", guestId);
       
-      // Save passions to local storage and database
       await saveUserPassions(selectedPassions, null);
       
-      // Generate learning path
       await buildPersonalLearningPath(selectedPassions, null);
       
       toast({
@@ -77,7 +57,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         description: "Let's begin your entrepreneurial journey."
       });
       
-      // Complete onboarding
       onComplete();
       navigate("/");
     } catch (error) {

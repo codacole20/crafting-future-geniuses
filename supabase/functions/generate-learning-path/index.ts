@@ -15,6 +15,11 @@ serve(async (req) => {
   
   try {
     const { passions, userId, guestId } = await req.json();
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
+    if (!openAIApiKey) {
+      throw new Error("OpenAI API key is not configured");
+    }
 
     // Check if we have passions
     if (!passions || !Array.isArray(passions) || passions.length === 0) {
@@ -55,7 +60,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`
+        'Authorization': `Bearer ${openAIApiKey}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -96,45 +101,6 @@ serve(async (req) => {
       throw new Error("Invalid response format from OpenAI");
     }
 
-    // Save to database if user is authenticated
-    if (userId || guestId) {
-      const supabaseClient = Deno.env.get("SUPABASE_URL") && Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") 
-        ? createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-          )
-        : null;
-
-      if (supabaseClient) {
-        try {
-          // First delete existing lessons for this user/guest
-          if (userId) {
-            await supabaseClient
-              .from('lessons')
-              .delete()
-              .eq('user_id', userId);
-          } else if (guestId) {
-            await supabaseClient
-              .from('lessons')
-              .delete()
-              .eq('guest_id', guestId);
-          }
-
-          // Then insert new lessons
-          const lessonsToInsert = lessons.map(lesson => ({
-            ...lesson,
-            completed: false,
-            user_id: userId || null,
-            guest_id: userId ? null : guestId
-          }));
-
-          await supabaseClient.from('lessons').insert(lessonsToInsert);
-        } catch (error) {
-          console.error("Error saving lessons to database:", error);
-        }
-      }
-    }
-
     // Return the generated lessons
     return new Response(
       JSON.stringify({
@@ -158,6 +124,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Helper function to create a Supabase client
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
