@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { DbUser } from "@/types/db";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
@@ -9,7 +10,6 @@ import { CircleCheck, Lock, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Define a type for the database user
 interface DbUser {
   id: number;
   email: string;
@@ -18,10 +18,9 @@ interface DbUser {
   lang: string;
   roles: "student" | "teacher" | "parent" | "admin";
   created_at: string;
-  passions?: string[]; // Make passions optional
+  passions?: string[];
 }
 
-// Lesson type definition
 interface Lesson {
   id: string;
   sequence_no: number;
@@ -40,7 +39,6 @@ const lessonTags = {
   scenario: { icon: "🎭", label: "Scenario" },
 };
 
-// --- Tooltip component for node ---
 function NodeTooltip({ text, visible }: { text: string; visible: boolean }) {
   return (
     <div
@@ -58,7 +56,6 @@ function NodeTooltip({ text, visible }: { text: string; visible: boolean }) {
   );
 }
 
-// --- TrailNodeCircle component with tooltip (renamed to avoid conflict) ---
 function TrailNodeCircle({
   state,
   sequence,
@@ -78,7 +75,6 @@ function TrailNodeCircle({
   title: string;
   showTooltip: boolean;
 }) {
-  // Color/size classes
   let classNames =
     "node-circle select-none cursor-pointer transition-shadow shadow-ct relative";
   if (state === "completed") classNames += " node-completed";
@@ -116,7 +112,6 @@ function TrailNodeCircle({
   );
 }
 
-// --- TrailLessonCard (simplified for trail, renamed to avoid conflict) ---
 function TrailLessonCard({
   locked,
   title,
@@ -171,7 +166,6 @@ function TrailLessonCard({
   );
 }
 
-// --- TrailLessonModal (renamed to avoid potential conflict) --- 
 function TrailLessonModal({ open, lesson, onClose, onComplete }: {
   open: boolean;
   lesson: any;
@@ -232,7 +226,6 @@ function TrailLessonModal({ open, lesson, onClose, onComplete }: {
   );
 }
 
-// Loading skeleton for quest nodes
 function QuestSkeletonPlaceholder() {
   return (
     <div className="flex flex-col items-center space-y-16 pb-12">
@@ -259,22 +252,18 @@ const QuestTrail = () => {
   const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
   const isMounted = useRef(true);
 
-  // For tooltips (hover/long-press); stores the index of node hovered
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Set up the isMounted ref for cleanup
   useEffect(() => {
     return () => {
       isMounted.current = false;
     };
   }, []);
 
-  // Load user data and lessons
   useEffect(() => {
     const loadUserData = async () => {
       setIsLoading(true);
       try {
-        // Get current authenticated user
         const { data: authData } = await supabase.auth.getUser();
         if (!authData.user) {
           console.log("No authenticated user found");
@@ -282,7 +271,6 @@ const QuestTrail = () => {
           return;
         }
 
-        // Get user profile data
         const { data: userData, error } = await supabase
           .from('Crafting Tomorrow Users')
           .select('*')
@@ -297,22 +285,22 @@ const QuestTrail = () => {
 
         if (!isMounted.current) return;
         
-        // Extract passions with type safety - ensure it's an array even if undefined
-        const userPassions = (userData.passions || []) as string[];
+        if (userData) {
+          setCurrentUser(userData as DbUser);
+          
+          const userPassions = userData.passions || [];
+          if (userPassions.length > 0) {
+            await generateInitialLessons(userData.id, userPassions);
+          } else {
+            await generateInitialLessons(userData.id, ["general"]);
+          }
+        }
         
-        // Set current user with correctly typed passions
-        setCurrentUser({
-          ...userData,
-          passions: userPassions
-        });
-        
-        // Load XP/streak from localStorage
         const savedXp = localStorage.getItem("userXp");
         const savedStreak = localStorage.getItem("userStreak");
         if (savedXp) setXp(parseInt(savedXp));
         if (savedStreak) setStreak(parseInt(savedStreak));
         
-        // Check streak
         const today = new Date().toDateString();
         const lastLoginDate = localStorage.getItem("lastLoginDate");
         if (lastLoginDate && lastLoginDate !== today) {
@@ -321,24 +309,16 @@ const QuestTrail = () => {
           const diffDays = Math.floor((currentDate.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24));
           
           if (diffDays === 1) {
-            // Consecutive day, increment streak
             const newStreak = (parseInt(savedStreak || "0") || 0) + 1;
             setStreak(newStreak);
             localStorage.setItem("userStreak", newStreak.toString());
             setStreakGlow(true);
             setTimeout(() => setStreakGlow(false), 500);
           } else if (diffDays > 1) {
-            // Streak broken
             setStreak(1);
             localStorage.setItem("userStreak", "1");
           }
         }
-        
-        // Load lessons for this user
-        await loadLessons(userData.id);
-        
-        // Update last login
-        localStorage.setItem("lastLoginDate", today);
       } catch (error) {
         console.error("Error loading user data:", error);
         toast({
@@ -354,7 +334,6 @@ const QuestTrail = () => {
     loadUserData();
   }, [toast]);
 
-  // Load lessons for current user
   const loadLessons = async (userId: string | number) => {
     try {
       let { data, error } = await supabase
@@ -368,7 +347,6 @@ const QuestTrail = () => {
       if (data && data.length > 0) {
         if (isMounted.current) setLessons(data);
       } else {
-        // Always generate lessons regardless of passions
         const userPassions = currentUser?.passions || ["general"];
         await generateInitialLessons(userId, userPassions);
       }
@@ -379,7 +357,6 @@ const QuestTrail = () => {
         description: "Could not load your quests",
       });
       
-      // Use fallback lessons
       if (isMounted.current) {
         setLessons([
           {
@@ -417,7 +394,6 @@ const QuestTrail = () => {
     }
   };
 
-  // Generate initial lessons if none exist
   const generateInitialLessons = async (userId: string | number, passionsArray: string[] = []) => {
     try {
       toast({
@@ -425,7 +401,6 @@ const QuestTrail = () => {
         description: "This may take a moment"
       });
       
-      // Use general as fallback if passions array is empty
       const passions = passionsArray.length > 0 ? passionsArray : ["general"];
       
       const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
@@ -447,7 +422,6 @@ const QuestTrail = () => {
         description: "Using default quests instead"
       });
       
-      // Set fallback lessons if we're still mounted
       if (isMounted.current) {
         setLessons([
           {
@@ -485,11 +459,9 @@ const QuestTrail = () => {
     }
   };
 
-  // Simplified version of computeLessonState to avoid excessive type recursion
   const computeLessonState = (lesson: Lesson): "completed" | "unlocked" | "locked" => {
     if (lesson.completed) return "completed";
     
-    // Find the first incomplete lesson
     const firstIncompleteIdx = lessons.findIndex(l => !l.completed);
     
     if (firstIncompleteIdx === lessons.indexOf(lesson)) return "unlocked";
@@ -509,7 +481,6 @@ const QuestTrail = () => {
       const updatedLessons = [...lessons];
       updatedLessons[idx].completed = true;
       
-      // Update lesson in database
       if (currentUser) {
         const { error } = await supabase
           .from('lessons')
@@ -519,20 +490,16 @@ const QuestTrail = () => {
         if (error) throw error;
       }
       
-      // Update local state
       setLessons(updatedLessons);
       setXp(newXp);
       
-      // Show success toast
       toast({
         title: `+${lessons[idx].xp_reward} XP`,
         description: "",
       });
       
-      // Update localStorage
       localStorage.setItem("userXp", newXp.toString());
       
-      // Close modal
       setShowLessonModal(false);
     } catch (error) {
       console.error("Error completing lesson:", error);
@@ -552,7 +519,6 @@ const QuestTrail = () => {
     }
   };
 
-  // Calculate first incomplete index once to avoid repeated calculations
   const firstIncompleteIndex = lessons.findIndex(l => !l.completed);
 
   if (isLoading) {

@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import Avatar from "@/components/Avatar";
+import { DbUser, DbUserUpdate } from "@/types/db";
+import Avatar from "@/components/ui/avatar";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -50,17 +51,6 @@ interface UserWithPassions {
   instagramToken: string;
 }
 
-interface DbUser {
-  id: number;
-  email: string;
-  display_name: string;
-  avatar_url: string;
-  lang: string;
-  roles: "student" | "teacher" | "parent" | "admin";
-  created_at: string;
-  passions?: string[];
-}
-
 const Settings = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<UserWithPassions>({
@@ -69,7 +59,7 @@ const Settings = () => {
     name: "Alex Student",
     avatar: "",
     language: "en",
-    passions: [] as string[],
+    passions: [],
     notifications: {
       lessons: true,
       chat: true,
@@ -103,15 +93,13 @@ const Settings = () => {
           return;
         }
 
-        const userPassions = (userData.passions || []) as string[];
-
         setUser({
           id: userData.id.toString(),
           email: userData.email,
           name: userData.display_name || authData.user.email.split('@')[0],
           avatar: userData.avatar_url || "",
           language: userData.lang || "en",
-          passions: userPassions,
+          passions: userData.passions || [],
           notifications: {
             lessons: true,
             chat: true,
@@ -197,49 +185,23 @@ const Settings = () => {
       if (!authData.user) {
         throw new Error("No authenticated user");
       }
-      
-      let userId: number;
-      
-      try {
-        userId = parseInt(user.id);
-        if (isNaN(userId)) {
-          console.log("Using auth user ID instead of parsed ID");
-          userId = undefined as unknown as number;
-        }
-      } catch (e) {
-        console.error("Error parsing user ID:", e);
-        userId = undefined as unknown as number;
-      }
-      
-      const upsertData: Partial<DbUser> = {
+
+      const payload: DbUserUpdate = {
         display_name: user.name,
         lang: user.language,
         passions: user.passions,
-        email: user.email,
         roles: "student" // Default role
       };
       
-      if (!isNaN(userId)) {
-        upsertData.id = userId;
-      }
-      
-      const { data: updatedUser, error: updateError } = await supabase
+      const { error: upsertErr } = await supabase
         .from('Crafting Tomorrow Users')
-        .upsert(upsertData)
+        .upsert(payload, { onConflict: 'id' })
+        .eq('id', authData.user.id)
         .select('*')
         .single();
         
-      if (updateError) throw updateError;
-      
-      if (updatedUser) {
-        const updatedPassions = (updatedUser.passions || []) as string[];
-        
-        setUser({
-          ...user,
-          passions: updatedPassions
-        });
-      }
-      
+      if (upsertErr) throw upsertErr;
+
       await generateLessonPlan(user.passions);
       
       toast({
