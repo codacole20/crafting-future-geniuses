@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
@@ -285,7 +284,15 @@ const QuestTrail = () => {
         }
 
         if (!isMounted.current) return;
-        setCurrentUser(userData);
+        
+        // Extract passions with type safety
+        const userPassions = (userData.passions || []) as string[];
+        
+        // Set current user with correctly typed passions
+        setCurrentUser({
+          ...userData,
+          passions: userPassions
+        });
         
         // Load XP/streak from localStorage
         const savedXp = localStorage.getItem("userXp");
@@ -341,7 +348,7 @@ const QuestTrail = () => {
       let { data, error } = await supabase
         .from('lessons')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId.toString())
         .order('sequence_no', { ascending: true });
       
       if (error) throw error;
@@ -349,9 +356,9 @@ const QuestTrail = () => {
       if (data && data.length > 0) {
         if (isMounted.current) setLessons(data);
       } else {
-        // No lessons found, trigger generation
         // Always generate lessons regardless of passions
-        await generateInitialLessons(userId, currentUser?.passions || ["general"]);
+        const userPassions = currentUser?.passions || ["general"];
+        await generateInitialLessons(userId, userPassions);
       }
     } catch (error) {
       console.error("Error loading lessons:", error);
@@ -411,7 +418,7 @@ const QuestTrail = () => {
       
       const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
         body: {
-          userId: userId,
+          userId: userId.toString(),
           passions: passions
         }
       });
@@ -466,9 +473,14 @@ const QuestTrail = () => {
     }
   };
 
-  const computeLessonState = (lesson: any, index: number) => {
+  // Fixed version of computeLessonState to avoid excessive type recursion
+  const computeLessonState = (lesson: Lesson, index: number): "completed" | "unlocked" | "locked" => {
     if (lesson.completed) return "completed";
-    if (index === firstIncompleteIndex) return "unlocked";
+    
+    // Find the first incomplete lesson index safely
+    const firstIncompleteIdx = lessons.findIndex(l => !l.completed);
+    
+    if (index === firstIncompleteIdx) return "unlocked";
     if (xp >= lesson.unlock_xp) return "unlocked";
     return "locked";
   };
@@ -528,6 +540,7 @@ const QuestTrail = () => {
     }
   };
 
+  // Calculate first incomplete index once to avoid repeated calculations
   const firstIncompleteIndex = lessons.findIndex(l => !l.completed);
 
   if (isLoading) {

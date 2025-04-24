@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Avatar } from "@/components/Avatar";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -76,13 +78,16 @@ const Settings = () => {
           return;
         }
 
+        // Extract passions from userData (fallback to empty array if undefined)
+        const userPassions = (userData.passions || []) as string[];
+
         setUser({
           id: userData.id.toString(),
           email: userData.email,
           name: userData.display_name || authData.user.email.split('@')[0],
           avatar: userData.avatar_url || "",
           language: userData.lang || "en",
-          passions: userData.passions || [],
+          passions: userPassions,
           notifications: {
             lessons: true,
             chat: true,
@@ -169,14 +174,18 @@ const Settings = () => {
         throw new Error("No authenticated user");
       }
       
+      const userId = parseInt(user.id);
+      
+      // Use upsert instead of update to handle first-time users
       const { data: updatedUser, error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
         .upsert({
-          id: authData.user.id,
+          id: isNaN(userId) ? undefined : userId,
           display_name: user.name,
           lang: user.language,
           passions: user.passions,
-          email: user.email
+          email: user.email,
+          roles: "student" // Default role
         })
         .select('*')
         .single();
@@ -184,9 +193,12 @@ const Settings = () => {
       if (updateError) throw updateError;
       
       if (updatedUser) {
+        // Get passions from updated user record, fallback to empty array
+        const updatedPassions = (updatedUser.passions || []) as string[];
+        
         setUser({
           ...user,
-          passions: updatedUser.passions || []
+          passions: updatedPassions
         });
       }
       
@@ -230,17 +242,7 @@ const Settings = () => {
           <h2 className="font-medium text-lg mb-4">User Profile</h2>
           
           <div className="flex items-center mb-6">
-            <div className="w-16 h-16 bg-ct-sky rounded-full flex items-center justify-center mr-4 overflow-hidden">
-              {user.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt="User avatar"
-                  className="w-full h-full object-cover" 
-                />
-              ) : (
-                <User size={24} className="text-gray-600" />
-              )}
-            </div>
+            <Avatar src={user.avatar} alt="User avatar" size="lg" className="mr-4" />
             <div>
               <Button 
                 size="sm" 
