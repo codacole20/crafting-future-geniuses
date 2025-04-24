@@ -10,17 +10,6 @@ import { CircleCheck, Lock, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface DbUser {
-  id: number;
-  email: string;
-  display_name: string;
-  avatar_url: string;
-  lang: string;
-  roles: "student" | "teacher" | "parent" | "admin";
-  created_at: string;
-  passions?: string[];
-}
-
 interface Lesson {
   id: string;
   sequence_no: number;

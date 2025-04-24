@@ -11,7 +11,8 @@ import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DbUser, DbUserUpdate } from "@/types/db";
-import Avatar from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { User as UserIcon } from "lucide-react";
 
 const passionOptions = [
   { id: "design", label: "Design" },
@@ -49,6 +50,7 @@ interface UserWithPassions {
     streak: boolean;
   };
   instagramToken: string;
+  roles?: "student" | "teacher" | "parent" | "admin";
 }
 
 const Settings = () => {
@@ -66,6 +68,7 @@ const Settings = () => {
       streak: true,
     },
     instagramToken: "",
+    roles: "student"
   });
 
   const [isUpdating, setIsUpdating] = useState(false);
@@ -106,6 +109,7 @@ const Settings = () => {
             streak: true,
           },
           instagramToken: "",
+          roles: userData.roles
         });
       } catch (err) {
         console.error("Error in loadUserData:", err);
@@ -190,13 +194,13 @@ const Settings = () => {
         display_name: user.name,
         lang: user.language,
         passions: user.passions,
-        roles: "student" // Default role
+        roles: user.roles || "student"
       };
       
       const { error: upsertErr } = await supabase
         .from('Crafting Tomorrow Users')
         .upsert(payload, { onConflict: 'id' })
-        .eq('id', authData.user.id)
+        .eq('id', user.id)
         .select('*')
         .single();
         
@@ -242,7 +246,12 @@ const Settings = () => {
           <h2 className="font-medium text-lg mb-4">User Profile</h2>
           
           <div className="flex items-center mb-6">
-            <Avatar src={user.avatar} alt="User avatar" size="lg" className="mr-4" />
+            <Avatar className="h-16 w-16 mr-4">
+              <AvatarImage src={user.avatar} alt="User avatar" />
+              <AvatarFallback>
+                <UserIcon className="h-8 w-8 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
             <div>
               <Button 
                 size="sm" 
