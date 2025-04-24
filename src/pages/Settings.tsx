@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Save, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,34 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-// Sample passion options
-const passionOptions = [
-  { id: "tech", label: "Technology" },
-  { id: "business", label: "Business" },
-  { id: "art", label: "Art & Design" },
-  { id: "environment", label: "Environment" },
-  { id: "education", label: "Education" },
-  { id: "health", label: "Health & Fitness" },
-  { id: "social", label: "Social Impact" },
-  { id: "finance", label: "Finance" },
-  { id: "gaming", label: "Gaming" },
-  { id: "music", label: "Music & Audio" },
-  { id: "writing", label: "Writing" },
-  { id: "fashion", label: "Fashion" },
-];
-
-// Language options
-const languageOptions = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "zh", label: "Chinese" },
-];
+import { AvatarUploadDialog } from "@/components/settings/AvatarUploadDialog";
 
 const Settings = () => {
-  // User state
   const [user, setUser] = useState({
     email: "student@example.com",
     name: "Alex Student",
@@ -52,6 +26,7 @@ const Settings = () => {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
 
   const handlePassionToggle = (id: string) => {
     if (user.passions.includes(id)) {
@@ -67,17 +42,21 @@ const Settings = () => {
     }
   };
 
+  const handleAvatarUpdate = (url: string) => {
+    setUser({
+      ...user,
+      avatar: url
+    });
+  };
+
   const handleUpdate = async () => {
     setIsUpdating(true);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update localStorage with new passions
       localStorage.setItem("userPassions", JSON.stringify(user.passions));
       
-      // Show success message
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
       
@@ -89,8 +68,6 @@ const Settings = () => {
   };
 
   const handleLogout = () => {
-    // In a real app, this would clear the auth token
-    // For our MVP, we'll just redirect to onboarding
     localStorage.removeItem("hasCompletedOnboarding");
     window.location.href = "/onboarding";
   };
@@ -104,19 +81,23 @@ const Settings = () => {
           <h2 className="font-medium text-lg mb-4">User Profile</h2>
           
           <div className="flex items-center mb-6">
-            <div className="w-16 h-16 bg-ct-sky rounded-full flex items-center justify-center mr-4">
+            <div className="w-16 h-16 bg-ct-sky rounded-full flex items-center justify-center mr-4 overflow-hidden">
               {user.avatar ? (
                 <img 
                   src={user.avatar} 
                   alt="User avatar"
-                  className="w-full h-full rounded-full object-cover" 
+                  className="w-full h-full object-cover" 
                 />
               ) : (
                 <User size={24} className="text-gray-600" />
               )}
             </div>
             <div>
-              <Button size="sm" className="bg-ct-teal hover:bg-ct-teal/90">
+              <Button 
+                size="sm" 
+                className="bg-ct-teal hover:bg-ct-teal/90"
+                onClick={() => setShowAvatarDialog(true)}
+              >
                 Change Avatar
               </Button>
             </div>
@@ -310,6 +291,12 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      <AvatarUploadDialog
+        open={showAvatarDialog}
+        onOpenChange={setShowAvatarDialog}
+        onSuccess={handleAvatarUpdate}
+      />
     </div>
   );
 };
