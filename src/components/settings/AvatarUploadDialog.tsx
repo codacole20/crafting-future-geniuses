@@ -38,19 +38,28 @@ export function AvatarUploadDialog({ open, onOpenChange, onSuccess }: AvatarUplo
       const ext = file.name.split('.').pop();
       
       // Create a valid filename that doesn't confuse Supabase
-      // Using a random string prefix to avoid uuid parsing errors
       const randomId = Math.random().toString(36).substring(2, 10);
-      const fileName = `avatar-${randomId}-${Date.now()}.${ext}`;
+      const fileName = `${randomId}-${Date.now()}.${ext}`;
       
-      const { data, error } = await supabase.storage
+      // Upload to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file);
 
-      if (error) throw error;
+      if (uploadError) throw uploadError;
 
+      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
+
+      // Update user's avatar URL in profiles
+      const { error: updateError } = await supabase
+        .from('Crafting Tomorrow Users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (updateError) throw updateError;
 
       onSuccess(publicUrl);
       onOpenChange(false);
