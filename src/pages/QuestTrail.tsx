@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import HeaderCard from "@/components/quest-trail/HeaderCard";
 import NodeCircle from "@/components/quest-trail/NodeCircle";
 import LessonCard from "@/components/quest-trail/LessonCard";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { CircleCheck, Lock, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Lesson type definition
 interface Lesson {
@@ -220,6 +221,20 @@ function TrailLessonModal({ open, lesson, onClose, onComplete }: {
   );
 }
 
+// Loading skeleton for quest nodes
+function QuestSkeletonPlaceholder() {
+  return (
+    <div className="flex flex-col items-center space-y-16 pb-12">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col items-center">
+          <Skeleton className="w-12 h-12 rounded-full mb-2" />
+          <Skeleton className="w-64 h-20 rounded-xl" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const QuestTrail = () => {
   const { toast } = useToast();
   const [xp, setXp] = useState(0);
@@ -231,9 +246,17 @@ const QuestTrail = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const isMounted = useRef(true);
 
   // For tooltips (hover/long-press); stores the index of node hovered
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // Set up the isMounted ref for cleanup
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Load user data and lessons
   useEffect(() => {
@@ -257,10 +280,11 @@ const QuestTrail = () => {
 
         if (error) {
           console.error("Error fetching user data:", error);
-          setIsLoading(false);
+          if (isMounted.current) setIsLoading(false);
           return;
         }
 
+        if (!isMounted.current) return;
         setCurrentUser(userData);
         
         // Load XP/streak from localStorage
@@ -304,7 +328,7 @@ const QuestTrail = () => {
           variant: "destructive"
         });
       } finally {
-        setIsLoading(false);
+        if (isMounted.current) setIsLoading(false);
       }
     };
     
@@ -323,46 +347,11 @@ const QuestTrail = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setLessons(data);
+        if (isMounted.current) setLessons(data);
       } else {
-        // No lessons found, trigger generation if we have user passions
-        if (currentUser?.passions?.length > 0) {
-          await generateInitialLessons(userId, currentUser.passions);
-        } else {
-          // Use fallback lessons
-          setLessons([
-            {
-              id: "lesson1",
-              sequence_no: 1,
-              title: "Introduction to AI & Entrepreneurship",
-              type: "video",
-              unlock_xp: 0,
-              xp_reward: 10,
-              completed: false,
-              user_id: userId.toString()
-            },
-            {
-              id: "lesson2",
-              sequence_no: 2,
-              title: "Finding Your Niche",
-              type: "quiz",
-              unlock_xp: 10,
-              xp_reward: 15,
-              completed: false,
-              user_id: userId.toString()
-            },
-            {
-              id: "lesson3",
-              sequence_no: 3,
-              title: "Market Research Basics",
-              type: "scenario",
-              unlock_xp: 25,
-              xp_reward: 20,
-              completed: false,
-              user_id: userId.toString()
-            },
-          ]);
-        }
+        // No lessons found, trigger generation
+        // Always generate lessons regardless of passions
+        await generateInitialLessons(userId, currentUser?.passions || ["general"]);
       }
     } catch (error) {
       console.error("Error loading lessons:", error);
@@ -370,16 +359,55 @@ const QuestTrail = () => {
         title: "Error",
         description: "Could not load your quests",
       });
+      
+      // Use fallback lessons
+      if (isMounted.current) {
+        setLessons([
+          {
+            id: "lesson1",
+            sequence_no: 1,
+            title: "Introduction to AI & Entrepreneurship",
+            type: "video",
+            unlock_xp: 0,
+            xp_reward: 10,
+            completed: false,
+            user_id: userId.toString()
+          },
+          {
+            id: "lesson2",
+            sequence_no: 2,
+            title: "Finding Your Niche",
+            type: "quiz",
+            unlock_xp: 10,
+            xp_reward: 15,
+            completed: false,
+            user_id: userId.toString()
+          },
+          {
+            id: "lesson3",
+            sequence_no: 3,
+            title: "Market Research Basics",
+            type: "scenario",
+            unlock_xp: 25,
+            xp_reward: 20,
+            completed: false,
+            user_id: userId.toString()
+          },
+        ]);
+      }
     }
   };
 
   // Generate initial lessons if none exist
-  const generateInitialLessons = async (userId: string | number, passions: string[]) => {
+  const generateInitialLessons = async (userId: string | number, passionsArray: string[] = []) => {
     try {
       toast({
         title: "Creating your quest path...",
         description: "This may take a moment"
       });
+      
+      // Use general as fallback if passions array is empty
+      const passions = passionsArray.length > 0 ? passionsArray : ["general"];
       
       const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
         body: {
@@ -390,7 +418,7 @@ const QuestTrail = () => {
       
       if (error) throw error;
       
-      if (data?.lessons) {
+      if (data?.lessons && isMounted.current) {
         setLessons(data.lessons);
       }
     } catch (error) {
@@ -399,6 +427,42 @@ const QuestTrail = () => {
         title: "Could not generate custom quests",
         description: "Using default quests instead"
       });
+      
+      // Set fallback lessons if we're still mounted
+      if (isMounted.current) {
+        setLessons([
+          {
+            id: "lesson1",
+            sequence_no: 1,
+            title: "Introduction to AI & Entrepreneurship",
+            type: "video",
+            unlock_xp: 0,
+            xp_reward: 10,
+            completed: false,
+            user_id: userId.toString()
+          },
+          {
+            id: "lesson2",
+            sequence_no: 2,
+            title: "Finding Your Niche",
+            type: "quiz",
+            unlock_xp: 10,
+            xp_reward: 15,
+            completed: false,
+            user_id: userId.toString()
+          },
+          {
+            id: "lesson3",
+            sequence_no: 3,
+            title: "Market Research Basics",
+            type: "scenario",
+            unlock_xp: 25,
+            xp_reward: 20,
+            completed: false,
+            user_id: userId.toString()
+          },
+        ]);
+      }
     }
   };
 
@@ -483,8 +547,12 @@ const QuestTrail = () => {
 
   if (!lessons || lessons.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F3]">
-        <span className="text-gray-800 font-poppins font-semibold text-lg">Start your first Quest to earn XP!</span>
+      <div className="min-h-screen bg-[#FAF8F3] py-0 sm:py-4 lg:py-8">
+        <div className="w-full max-w-[480px] mx-auto flex flex-col items-center px-1">
+          <HeaderCard xp={xp} streak={streak} streakGlow={streakGlow} />
+          <h1 className="text-2xl font-poppins font-semibold mt-3 mb-7">Quest Trail</h1>
+          <QuestSkeletonPlaceholder />
+        </div>
       </div>
     );
   }

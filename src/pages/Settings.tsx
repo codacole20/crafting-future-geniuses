@@ -42,7 +42,7 @@ const Settings = () => {
     name: "Alex Student",
     avatar: "",
     language: "en",
-    passions: [],
+    passions: [] as string[],
     notifications: {
       lessons: true,
       chat: true,
@@ -120,7 +120,8 @@ const Settings = () => {
   };
 
   const generateLessonPlan = async (passions: string[]) => {
-    if (!user.id || passions.length === 0) return;
+    if (!user.id) return;
+    const passionsToUse = passions.length > 0 ? passions : ["general"];
     
     setIsGeneratingPlan(true);
     try {
@@ -131,7 +132,7 @@ const Settings = () => {
       
       const { data, error } = await supabase.functions.invoke('generate-lesson-plan', {
         body: {
-          passions: passions.map(id => passionOptions.find(p => p.id === id)?.label || id),
+          passions: passionsToUse.map(id => passionOptions.find(p => p.id === id)?.label || id),
           userId: user.id
         }
       });
@@ -142,6 +143,10 @@ const Settings = () => {
         title: "Quest path updated!",
         description: "Your personalized learning journey has been created."
       });
+      
+      localStorage.removeItem("userXp");
+      localStorage.removeItem("userStreak");
+      localStorage.removeItem("lastLoginDate");
       
     } catch (error) {
       console.error("Error generating lesson plan:", error);
@@ -164,18 +169,33 @@ const Settings = () => {
         throw new Error("No authenticated user");
       }
       
-      const { error: updateError } = await supabase
+      const { data: updatedUser, error: updateError } = await supabase
         .from('Crafting Tomorrow Users')
-        .update({
+        .upsert({
+          id: authData.user.id,
           display_name: user.name,
           lang: user.language,
-          passions: user.passions
+          passions: user.passions,
+          email: user.email
         })
-        .eq('email', user.email);
+        .select('*')
+        .single();
         
       if (updateError) throw updateError;
       
+      if (updatedUser) {
+        setUser({
+          ...user,
+          passions: updatedUser.passions || []
+        });
+      }
+      
       await generateLessonPlan(user.passions);
+      
+      toast({
+        title: "Settings saved",
+        description: "Your profile has been updated successfully."
+      });
       
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ const Chat = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [rateLimited, setRateLimited] = useState(false);
   const [remainingRequests, setRemainingRequests] = useState(5);
+  const scrollRef = useRef<HTMLDivElement>(null);
   
   // Mock thread responses
   const [threads, setThreads] = useState(mockStudentThreads);
@@ -91,6 +92,11 @@ const Chat = () => {
     getUserData();
   }, []);
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+  
   const sendMessage = async () => {
     if (!userInput.trim() || loading) return;
     
@@ -155,7 +161,7 @@ const Chat = () => {
       };
       
       setChatMessages(prev => [...prev, aiResponse]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting AI response:", error);
       
       // Add error message
@@ -285,6 +291,9 @@ const Chat = () => {
                     <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }}></div>
                   </div>
                 )}
+                
+                {/* Scroll anchor div */}
+                <div ref={scrollRef} />
               </div>
               
               <div className="p-4 border-t">
